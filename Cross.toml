@@ -1,0 +1,7 @@
+[target.armv7-unknown-linux-gnueabihf]
+image = "rustcross:pulseaudio-armhf"
+
+[build.env]
+passthrough = [
+    "RUSTFLAGS",
+]

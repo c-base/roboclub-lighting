@@ -1,0 +1,9 @@
+edition = "2018"
+hard_tabs = true
+
+enum_discrim_align_threshold = 20
+struct_field_align_threshold = 20
+
+imports_layout = "HorizontalVertical"
+merge_imports = true
+group_imports = "StdExternalCrate"

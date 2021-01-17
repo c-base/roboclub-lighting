@@ -1,0 +1,25 @@
+[env]
+MODE = "release"
+
+[tasks.build]
+command = "cargo"
+args = ["build", "--release"]
+
+[tasks.objcopy]
+command = "cargo"
+args = ["objcopy", "--", "-O" ,"binary", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/target/thumbv7em-none-eabihf/${MODE}/${CARGO_MAKE_PROJECT_NAME}", "rom.bin"]
+dependencies = [
+  "build"
+]
+
+[tasks.flash]
+command = "st-flash"
+args = ["write", "rom.bin", "0x8000000"]
+dependencies = [
+  "objcopy"
+]
+
+[tasks.default]
+dependencies = [
+    "flash"
+]

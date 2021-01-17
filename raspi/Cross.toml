@@ -1,0 +1,15 @@
+[target.armv7-unknown-linux-gnueabihf]
+image = "rustcross:pulseaudio-armhf"
+
+[target.armv7-unknown-linux-gnueabihf.env]
+volumes = [
+    "/home/hrmny/code/rust/roboclub-lighting",
+]
+
+[build.env]
+passthrough = [
+    "RUSTFLAGS",
+]
+volumes = [
+    "/home/hrmny/code/rust/roboclub-lighting",
+]

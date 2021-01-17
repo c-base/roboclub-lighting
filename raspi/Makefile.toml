@@ -1,0 +1,50 @@
+[env]
+MODE = "debug"
+#PKG_CONFIG_PATH = "/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot/usr/lib"
+#PKG_CONFIG_SYSROOT_DIR = "./sysroot"
+#PKG_CONFIG_PATH = "/usr/arm-linux-gnueabihf/lib;/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot;/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot/pulseaudio"
+
+[tasks.build]
+command = "cargo"
+#cwd = ".."
+args = ["build", "-p", "robolab", "--target", "armv7-unknown-linux-gnueabihf", "--release"]
+
+[tasks.copy-bin]
+command = "sshpass"
+args = ["-p", "roboclub", "rsync", "-avzz", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/target/armv7-unknown-linux-gnueabihf/${MODE}/${CARGO_MAKE_PROJECT_NAME}", "pi@10.0.0.231:/home/pi/leds/"]
+dependencies = [
+    "build"
+]
+
+[tasks.copy-public]
+command = "sshpass"
+args = ["-p", "roboclub", "rsync", "-avzz", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/raspi/public", "pi@10.0.0.231:/home/pi/leds/"]
+
+[tasks.copy]
+dependencies = [
+    "copy-bin",
+    "copy-public"
+]
+
+[tasks.remote-run]
+command = "sshpass"
+args = ["-p", "roboclub", "ssh", "-t", "pi@10.0.0.231", "cd", "/home/pi/leds", ";", "RUST_BACKTRACE=full", "RUST_LOG=debug", "/home/pi/leds/robolab", "/dev/spidev3.0"]
+dependencies = [
+    "copy"
+]
+
+[tasks.remote-restart]
+command = "sshpass"
+args = ["-p", "roboclub", "ssh", "-t", "pi@10.0.0.231", "systemctl --user restart leds"]
+dependencies = [
+    "copy"
+]
+
+[tasks.check]
+command = "cargo"
+args = ["check"]
+
+[tasks.default]
+dependencies = [
+    "build"
+]
