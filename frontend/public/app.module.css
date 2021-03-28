@@ -1,0 +1,13 @@
+.main {
+	flex: 1 0 auto;
+
+	padding: 40px;
+
+	overflow: hidden scroll;
+
+	background-color: var(--background-primary);
+}
+
+.main > * {
+	max-width: 740px;
+}

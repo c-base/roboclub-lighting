@@ -9,7 +9,7 @@ const GRAD_Y: [f32; 12] = [
 	1.0, 1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0,
 ];
 
-struct Perlin {
+pub struct Perlin {
 	m_perm:   [u8; 512],
 	m_perm12: [u8; 512],
 }

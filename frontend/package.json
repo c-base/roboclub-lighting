@@ -1,0 +1,39 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "start": "wmr",
+    "build": "wmr build --prerender",
+    "serve": "wmr serve",
+    "prettier": "prettier --write ./public/**.*"
+  },
+  "prettier": {
+    "useTabs": true,
+    "endOfLine": "lf",
+    "semi": true
+  },
+  "eslintConfig": {
+    "extends": "preact"
+  },
+  "alias": {
+    "react": "preact/compat",
+    "react-dom": "preact/compat"
+  },
+  "devDependencies": {
+    "@types/json-schema": "^7.0.7",
+    "prettier": "^2.2.1",
+    "wmr": "^1.2.0"
+  },
+  "dependencies": {
+    "@jaames/iro": "^5.3.2",
+    "@xstate/fsm": "^1.6.0",
+    "clsx": "^1.1.1",
+    "goober": "^2.0.36",
+    "preact": "^10.5.12",
+    "preact-feather": "^4.2.1",
+    "preact-iso": "^1.0.0"
+  }
+}

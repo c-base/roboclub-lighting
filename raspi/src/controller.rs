@@ -216,10 +216,10 @@ impl<'a> Views<'a> {
 		let (section9, rest) = third.split_at_mut(107);
 		let (section10, rest) = rest.split_at_mut(154 - 107);
 		let (section11, rest) = rest.split_at_mut(208 - 154);
-		let (section12, rest) = rest.split_at_mut(309 - 208);
-		let (section13, rest) = rest.split_at_mut(351 - 309);
-		let (section14, rest) = rest.split_at_mut(443 - 351);
-		let (section15, _) = rest.split_at_mut(475 - 443);
+		let (section12, rest) = rest.split_at_mut(308 - 208);
+		let (section13, rest) = rest.split_at_mut(350 - 308);
+		let (section14, rest) = rest.split_at_mut(442 - 350);
+		let (section15, _) = rest.split_at_mut(475 - 442);
 
 		let sections = [
 			Section::new(section1, true),

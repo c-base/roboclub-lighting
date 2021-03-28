@@ -1,5 +1,6 @@
 [workspace]
 members = [
+	"raspi/effect-derive",
     "raspi",
     "common",
     "stm"

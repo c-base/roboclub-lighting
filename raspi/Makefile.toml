@@ -1,24 +1,28 @@
 [env]
-MODE = "debug"
+MODE = "release"
+TARGET = "aarch64-unknown-linux-musl" #"aarch64-unknown-linux-gnu"
 #PKG_CONFIG_PATH = "/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot/usr/lib"
 #PKG_CONFIG_SYSROOT_DIR = "./sysroot"
 #PKG_CONFIG_PATH = "/usr/arm-linux-gnueabihf/lib;/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot;/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot/pulseaudio"
+RPI_HOST = "10.0.0.239"
+RPI_USER = "ubuntu"
+RPI_PASS = "roboclub"
 
 [tasks.build]
 command = "cargo"
 #cwd = ".."
-args = ["build", "-p", "robolab", "--target", "armv7-unknown-linux-gnueabihf", "--release"]
+args = ["build", "-p", "robolab", "--target", "${TARGET}", "--release"]
 
 [tasks.copy-bin]
 command = "sshpass"
-args = ["-p", "roboclub", "rsync", "-avzz", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/target/armv7-unknown-linux-gnueabihf/${MODE}/${CARGO_MAKE_PROJECT_NAME}", "pi@10.0.0.231:/home/pi/leds/"]
+args = ["-p", "${RPI_PASS}", "rsync", "-avzz", "--info=progress2", "../target/${TARGET}/${MODE}/${CARGO_MAKE_PROJECT_NAME}", "${RPI_USER}@${RPI_HOST}:/home/${RPI_USER}/leds/"]
 dependencies = [
     "build"
 ]
 
 [tasks.copy-public]
 command = "sshpass"
-args = ["-p", "roboclub", "rsync", "-avzz", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/raspi/public", "pi@10.0.0.231:/home/pi/leds/"]
+args = ["-p", "${RPI_PASS}", "rsync", "-avzz", "--info=progress2", "../frontend/dist/", "${RPI_USER}@${RPI_HOST}:/home/ubuntu/leds/public"]
 
 [tasks.copy]
 dependencies = [
@@ -28,14 +32,14 @@ dependencies = [
 
 [tasks.remote-run]
 command = "sshpass"
-args = ["-p", "roboclub", "ssh", "-t", "pi@10.0.0.231", "cd", "/home/pi/leds", ";", "RUST_BACKTRACE=full", "RUST_LOG=debug", "/home/pi/leds/robolab", "/dev/spidev3.0"]
+args = ["-p", "${RPI_PASS}", "ssh", "-t", "${RPI_USER}@${RPI_HOST}", "cd", "/home/${RPI_USER}/leds", ";", "RUST_BACKTRACE=full", "RUST_LOG=debug", "/home/${RPI_USER}/leds/robolab", "/dev/spidev3.0"]
 dependencies = [
     "copy"
 ]
 
 [tasks.remote-restart]
 command = "sshpass"
-args = ["-p", "roboclub", "ssh", "-t", "pi@10.0.0.231", "systemctl --user restart leds"]
+args = ["-p", "${RPI_PASS}", "ssh", "-t", "${RPI_USER}@${RPI_HOST}", "systemctl --user restart leds"]
 dependencies = [
     "copy"
 ]

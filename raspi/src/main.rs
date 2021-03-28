@@ -1,20 +1,34 @@
+#![feature(decl_macro)]
 #![allow(unused)]
 
-use std::{error::Error, time::Duration};
+#[macro_use]
+extern crate rocket;
 
-use futures::{FutureExt, StreamExt};
+use std::{
+	collections::HashMap,
+	error::Error,
+	sync::{Arc, RwLock},
+	time::Duration,
+};
+
+use anyhow::Context;
+// use jsonrpc_tcp_server::{jsonrpc_core::IoHandler, ServerBuilder};
 use rppal::spi::Bus;
-use tracing::{debug, error, info, instrument, warn};
-use tracing_futures::WithSubscriber;
-use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter, FmtSubscriber};
-use warp::Filter;
+use tracing::info;
+use tracing_subscriber::FmtSubscriber;
 
-use crate::controller::Controller;
+use crate::{
+	controller::Controller,
+	effects::{flash_rainbow::FlashRainbow, moving_lights::MovingLights},
+};
 
 // mod audio;
 mod colour;
 mod controller;
+mod db;
 mod effects;
+mod http;
+mod jsonrpc;
 mod noise;
 
 pub const APP_NAME: &'static str = "roboclub-led-controller";
@@ -30,18 +44,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 		.with_env_filter(filter)
 		.finish();
 
-	tracing::subscriber::set_global_default(sub).expect("failed to start the logger.");
+	tracing::subscriber::set_global_default(sub).with_context(|| "failed to start the logger.")?;
 
-	tokio::runtime::Builder::new_multi_thread()
-		.enable_all()
-		.build()?
-		.block_on(start())
-}
+	let mut db = sled::open("db").with_context(|| "should be able to open sled db")?;
 
-#[instrument]
-async fn start() -> Result<(), Box<dyn Error>> {
+	// 	tokio::runtime::Builder::new_current_thread()
+	// 		.enable_all()
+	// 		.build()?
+	// 		.block_on(start())
+	// }
+	//
+	// #[instrument]
+	// async fn start() -> Result<(), Box<dyn Error>> {
 	const GPIO_READY: u8 = 17;
-	let controller = Controller::new(GPIO_READY, Bus::Spi3)?;
+	let mut controller = Controller::new(GPIO_READY, Bus::Spi0)?;
 
 	// let mut frames = audio::get_frames().unwrap();
 	//
@@ -86,54 +102,105 @@ async fn start() -> Result<(), Box<dyn Error>> {
 	// 	std::thread::sleep(Duration::from_millis(10));
 	// }
 
-	let home = warp::fs::dir("public");
-
-	let ws = warp::path("ws")
-		// The `ws()` filter will prepare the Websocket handshake.
-		.and(warp::ws())
-		.map(|ws: warp::ws::Ws| {
-			// And then our closure will be called when it completes...
-			ws.on_upgrade(|websocket| {
-				// Just echo all messages back...
-				let (tx, rx) = websocket.split();
-				rx.forward(tx).map(|result| {
-					if let Err(e) = result {
-						eprintln!("websocket error: {:?}", e);
-					}
-				})
-			})
-		});
-
-	let routes = home.or(ws).with(warp::trace::request());
-
-	let handle = tokio::runtime::Handle::current();
-
-	let server = warp::serve(routes);
+	// let home = warp::fs::dir("public");
+	//
+	// let ws = warp::path("ws")
+	// 	// The `ws()` filter will prepare the Websocket handshake.
+	// 	.and(warp::ws())
+	// 	.map(|ws: warp::ws::Ws| {
+	// 		// And then our closure will be called when it completes...
+	// 		ws.on_upgrade(|websocket| {
+	// 			// Just echo all messages back...
+	// 			let (tx, rx) = websocket.split();
+	// 			rx.forward(tx).map(|result| {
+	// 				if let Err(e) = result {
+	// 					eprintln!("websocket error: {:?}", e);
+	// 				}
+	// 			})
+	// 		})
+	// 	});
+	//
+	// let routes = home.or(ws).with(warp::trace::request());
+	//
+	// let handle = tokio::runtime::Handle::current();
+	//
+	// let server = warp::serve(routes);
 	// let (_, srv) = server.try_bind_with_graceful_shutdown(([0, 0, 0, 0], 3030), async {
 	// 	tokio::signal::ctrl_c()
 	// 		.await
 	// 		.expect("failed to listen for event");
 	// })?;
 
-	handle.spawn_blocking(|| {
-		// let step = effects::rainbow();
-		// let step = effects::snake();
-		// let step = effects::random();
-		// let step = effects::flash_rainbow();
-		let step = effects::explosions(250, 0.5, 0.99, 0.99);
-		// let step = effects::police();
-		// let step = effects::moving_lights(20, 15, 2000);
-		// let step = effects::meteors(10, 16, 40, 4);
-		// let step = effects::random();
+	let runner = {
+		let mut effect_map: HashMap<String, Box<dyn effects::Effect>> = HashMap::new();
 
-		info!("starting effect loop");
-		effects::run(controller, step);
-	});
+		fn add_effect<E: Effect + 'static, T: FnOnce(sled::Tree) -> E>(
+			map: &mut HashMap<String, Box<dyn effects::Effect>>,
+			db: &mut sled::Db,
+			name: &str,
+			init: T,
+		) {
+			let tree = db.open_tree(name).expect("should be able to open a tree");
+			map.insert(name.to_string(), Box::new(init(tree)));
+		}
 
-	// srv.await;
-	server.run(([0, 0, 0, 0], 3030)).await;
+		use effects::*;
+
+		add_effect(&mut effect_map, &mut db, "meteors", |db| Meteors::new(db));
+		add_effect(&mut effect_map, &mut db, "balls", |db| Balls::new(db));
+		add_effect(&mut effect_map, &mut db, "explosions", |db| {
+			Explosions::new(db)
+		});
+		add_effect(&mut effect_map, &mut db, "rainbow", |db| Rainbow::new(db));
+		add_effect(&mut effect_map, &mut db, "snake", |db| Snake::new(db));
+		add_effect(&mut effect_map, &mut db, "random", |db| {
+			RandomNoise::new(db)
+		});
+		add_effect(&mut effect_map, &mut db, "flash_rainbow", |db| {
+			FlashRainbow::new(db)
+		});
+		add_effect(&mut effect_map, &mut db, "police", |db| Police::new(db));
+		add_effect(&mut effect_map, &mut db, "moving_lights", |db| {
+			MovingLights::new(db)
+		});
+		add_effect(&mut effect_map, &mut db, "static_rainbow", |db| {
+			StaticRainbow::new(db)
+		});
+
+		let tree = db
+			.open_tree("controller")
+			.expect("should be able to open a tree");
+		let runner = runner::EffectRunner::new(tree, effect_map);
+		Arc::new(RwLock::new(runner))
+	};
+
+	let _handle = {
+		let runner = runner.clone();
+		std::thread::spawn(move || {
+			info!("starting effect loop");
+			loop {
+				let mut runner = runner.write().unwrap();
+				runner.tick(&mut controller);
+				drop(runner);
+				std::thread::sleep(Duration::from_micros(500));
+			}
+		})
+	};
+
+	// let mut io = IoHandler::default();
+	// io.add_sync_method("say_hello", |_params| {
+	// 	println!("Processing");
+	// 	Ok(Value::String("hello".to_owned()))
+	// });
+	//
+	// let server = ServerBuilder::new(io)
+	// 	.start(&"0.0.0.0:3030".parse().unwrap())
+	// 	.expect("Server must start with no issues");
+	//
+	// server.wait()
+
+	jsonrpc::start();
+	http::run(runner.clone())?;
 
 	Ok(())
 }
-
-fn start_server() {}
