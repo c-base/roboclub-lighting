@@ -7,7 +7,8 @@
 }
 
 :root {
-	--base-font-family: "Atkinson Hyperlegible", -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif ;
+	--base-font-family: "Atkinson Hyperlegible", -apple-system, system-ui, BlinkMacSystemFont,
+		"Segoe UI", Roboto, sans-serif;
 	--mono-font-family: "SF Mono", "Segoe UI Mono", "Roboto Mono", Menlo, Courier, monospace;
 
 	/**
@@ -47,7 +48,8 @@
 	--scrollbar-auto-scrollbar-color-thumb: #202225;
 	--scrollbar-auto-scrollbar-color-track: #2f3136;
 	--elevation-stroke: 0 0 0 1px rgba(4, 4, 5, 0.15);
-	--elevation-low: 0 1px 0 rgba(4, 4, 5, 0.2), 0 1.5px 0 rgba(6, 6, 7, 0.05), 0 2px 0 rgba(4, 4, 5, 0.05);
+	--elevation-low: 0 1px 0 rgba(4, 4, 5, 0.2), 0 1.5px 0 rgba(6, 6, 7, 0.05),
+		0 2px 0 rgba(4, 4, 5, 0.05);
 	--elevation-medium: 0 4px 4px rgba(0, 0, 0, 0.16);
 	--elevation-high: 0 8px 16px rgba(0, 0, 0, 0.24);
 	--logo-primary: #fff;
@@ -66,5 +68,5 @@
 	--deprecated-text-input-border: rgba(0, 0, 0, 0.3);
 	--deprecated-text-input-border-hover: #040405;
 	--deprecated-text-input-border-disabled: #202225;
-	--deprecated-text-input-prefix: #dcddde
+	--deprecated-text-input-prefix: #dcddde;
 }

@@ -9,6 +9,8 @@ use crate::{controller::Controller, db, effects::prelude::*, noise};
 pub struct RandomNoiseConfig {
 	#[educe(Default = 0.03)]
 	speed: f32,
+	#[educe(Default = 20.0)]
+	size:  f32,
 }
 
 pub struct RandomNoise {
@@ -19,9 +21,9 @@ pub struct RandomNoise {
 }
 
 impl RandomNoise {
-	pub fn new(db: sled::Tree) -> Self {
+	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = RandomNoise {
-			config: db::load_effect_config(&db),
+			config: db::load_effect_config(&mut db),
 			db,
 
 			counter: 0.0,
@@ -62,8 +64,8 @@ impl RandomNoise {
 				// let num = rand.gen_range(0, 55);
 				// let num = rand.gen_range(0.0, 1.0);
 				let num = 0.0;
-				let num =
-					(noise::simplex3d(i as f32 / 20.0, num as f32, self.counter) * 255.0) as u8;
+				let num = (noise::simplex3d(i as f32 / self.config.size, num as f32, self.counter)
+					* 255.0) as u8;
 				let col = [num, num, num];
 
 				state[strip][i] = col;

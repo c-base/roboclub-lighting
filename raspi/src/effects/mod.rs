@@ -18,6 +18,7 @@ pub use crate::effects::{
 };
 
 pub mod balls;
+pub mod config;
 pub mod explosions;
 pub mod flash_rainbow;
 pub mod meteors;

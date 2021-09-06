@@ -5,7 +5,7 @@ use jsonrpc_pubsub::{PubSubHandler, Session, Subscriber, SubscriptionId};
 use jsonrpc_ws_server::{RequestContext, ServerBuilder};
 
 pub fn start() {
-	let mut io = PubSubHandler::new(MetaIoHandler::default());
+	let mut io = PubSubHandler::<Arc<Session>>::new(MetaIoHandler::default());
 	io.add_sync_method("say_hello", |_params: Params| {
 		Ok(Value::String("hello".to_string()))
 	});
@@ -50,14 +50,16 @@ pub fn start() {
 	// 	}),
 	// );
 
-	let handler: MetaIoHandler<_> = io.into();
+	// let handler: MetaIoHandler<_> = io.into();
 
 	// let server = ServerBuilder::with_meta_extractor(handler, |context: &RequestContext| {
 	// 	Arc::new(Session::new(context.out.clone()))
 	// })
-	let server = ServerBuilder::new(handler)
-		.start(&"0.0.0.0:4445".parse().unwrap())
-		.expect("Unable to start RPC server");
+	let server = ServerBuilder::with_meta_extractor(io, |context: &RequestContext| {
+		Arc::new(Session::new(context.sender().clone()))
+	})
+	.start(&"0.0.0.0:4445".parse().unwrap())
+	.expect("Unable to start RPC server");
 
 	server.wait();
 }

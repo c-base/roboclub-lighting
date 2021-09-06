@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use crate::controller::Controller;
-pub use crate::{colour::*, effect, effects::Effect};
+pub use crate::{color::*, effect, effects::Effect};
 
 pub const NUM_LEDS: usize = common::LEDS_PER_STRIP;
 

@@ -1,4 +1,5 @@
 use educe::Educe;
+use palette::FromColor;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -19,9 +20,9 @@ pub struct StaticRainbow {
 }
 
 impl StaticRainbow {
-	pub fn new(db: sled::Tree) -> Self {
+	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = StaticRainbow {
-			config: db::load_effect_config(&db),
+			config: db::load_effect_config(&mut db),
 			db,
 		};
 
@@ -40,8 +41,8 @@ impl StaticRainbow {
 		for i in 0..leds.len() {
 			if self.config.palette {
 				let hue = (i as f32 * (360.0 / self.config.hue_frequency));
-				use palette::{Hsv, LinSrgb};
-				let (r, g, b) = LinSrgb::from(Hsv::new(hue, 1.0, 1.0))
+				use palette::{Hsv, Srgb};
+				let (r, g, b) = Srgb::from_color(Hsv::new(hue, 1.0, 1.0))
 					.into_format::<u8>()
 					.into_components();
 				leds[i] = [r, g, b];

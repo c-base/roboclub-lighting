@@ -1,6 +1,6 @@
 import { JSONSchema7 } from "json-schema";
 
-const BASE_URL = "http://10.0.0.57:4444";
+const BASE_URL = import.meta.hot ? "http://10.0.0.239:4444" : "";
 
 function request(method: string, url: string, body?: any): Promise<Response> {
 	let config: RequestInit = {

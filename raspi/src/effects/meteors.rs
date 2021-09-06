@@ -27,9 +27,9 @@ pub struct Meteors {
 }
 
 impl Meteors {
-	pub fn new(db: sled::Tree) -> Self {
+	pub fn new(mut db: sled::Tree) -> Self {
 		let mut meteors = Meteors {
-			config: db::load_effect_config(&db),
+			config: db::load_effect_config(&mut db),
 			db,
 			offset: 0,
 			meteors: vec![],
@@ -62,9 +62,9 @@ impl Meteors {
 		for j in 0..leds.len() {
 			fade_to_black_col(
 				&mut leds[j],
-				rand.gen_range(0, self.config.meteor_trail_decay),
-				rand.gen_range(0, self.config.meteor_trail_decay),
-				rand.gen_range(0, self.config.meteor_trail_decay),
+				rand.gen_range(0..self.config.meteor_trail_decay),
+				rand.gen_range(0..self.config.meteor_trail_decay),
+				rand.gen_range(0..self.config.meteor_trail_decay),
 			)
 		}
 

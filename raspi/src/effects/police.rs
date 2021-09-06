@@ -2,7 +2,7 @@ use educe::Educe;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{colour::RGB, controller::Controller, db, effects::prelude::*};
+use crate::{color::RGB, controller::Controller, db, effects::prelude::*};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
 #[educe(Default)]
@@ -17,9 +17,9 @@ pub struct Police {
 }
 
 impl Police {
-	pub fn new(db: sled::Tree) -> Self {
+	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = Police {
-			config: db::load_effect_config(&db),
+			config: db::load_effect_config(&mut db),
 			db,
 		};
 

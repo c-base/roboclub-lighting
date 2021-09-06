@@ -12,7 +12,7 @@ use rppal::{
 };
 use tracing::{debug, error, info, instrument, trace, warn};
 
-use crate::colour::RGB;
+use crate::color::RGB;
 
 const BLANK: [[u8; 3]; common::LEDS_PER_STRIP] = [[0; 3]; common::LEDS_PER_STRIP];
 

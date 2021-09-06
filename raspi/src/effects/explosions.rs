@@ -9,10 +9,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-	colour::HSV,
+	color::HSV,
 	controller::Controller,
 	db,
-	effects::{prelude, prelude::*},
+	effects::{config::color::ColorConfig, prelude, prelude::*},
 };
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
@@ -27,10 +27,7 @@ pub struct ExplosionsConfig {
 	#[educe(Default = 0.99)]
 	darken_factor:      f32,
 
-	#[educe(Default = 150)]
-	hue_min: u8,
-	#[educe(Default = 200)]
-	hue_max: u8,
+	color: ColorConfig,
 }
 
 struct Explosion {
@@ -50,9 +47,9 @@ pub struct Explosions {
 }
 
 impl Explosions {
-	pub fn new(db: sled::Tree) -> Self {
+	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = Explosions {
-			config: db::load_effect_config(&db),
+			config: db::load_effect_config(&mut db),
 			db,
 
 			last: Instant::now(),
@@ -79,20 +76,15 @@ impl Explosions {
 
 		let now = Instant::now();
 		if now - self.last > duration {
-			let strip = rand.gen_range(0, state.len());
-			let pos = rand.gen_range(0, state[strip].len() as i32);
+			let strip = rand.gen_range(0..state.len());
+			let pos = rand.gen_range(0..state[strip].len() as i32);
 
 			self.explosions.push_back(Explosion {
 				strip,
 				pos,
 				speed: self.config.start_speed,
 				width: 0.0,
-				col: HSV::new(
-					((rand.gen_range(0, self.config.hue_max - self.config.hue_min)
-						+ self.config.hue_min) % 255) as u8, //((rand.gen_range(0, 50) + counter as u16) % 255) as u8,
-					255,
-					255,
-				),
+				col: self.config.color.random(),
 			});
 			self.last = now;
 		}

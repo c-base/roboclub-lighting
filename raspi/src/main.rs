@@ -7,7 +7,7 @@ extern crate rocket;
 use std::{
 	collections::HashMap,
 	error::Error,
-	sync::{Arc, RwLock},
+	sync::{Arc, Mutex, RwLock},
 	time::Duration,
 };
 
@@ -23,7 +23,7 @@ use crate::{
 };
 
 // mod audio;
-mod colour;
+mod color;
 mod controller;
 mod db;
 mod effects;
@@ -171,7 +171,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 			.open_tree("controller")
 			.expect("should be able to open a tree");
 		let runner = runner::EffectRunner::new(tree, effect_map);
-		Arc::new(RwLock::new(runner))
+		Arc::new(Mutex::new(runner))
 	};
 
 	let _handle = {
@@ -179,10 +179,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 		std::thread::spawn(move || {
 			info!("starting effect loop");
 			loop {
-				let mut runner = runner.write().unwrap();
+				let mut runner = runner.lock().unwrap();
 				runner.tick(&mut controller);
 				drop(runner);
-				std::thread::sleep(Duration::from_micros(500));
+				// std::thread::yield_now();
+				std::thread::sleep(Duration::from_micros(100));
 			}
 		})
 	};
@@ -199,7 +200,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 	//
 	// server.wait()
 
-	jsonrpc::start();
+	// jsonrpc::start();
 	http::run(runner.clone())?;
 
 	Ok(())

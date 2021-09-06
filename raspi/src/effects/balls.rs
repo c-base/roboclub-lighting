@@ -3,11 +3,17 @@ use rand::Rng;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{colour::HSV, controller::Controller, db, effects::prelude::*};
+use crate::{
+	color::HSV,
+	controller::Controller,
+	db,
+	effects::{config::color::ColorConfig, prelude::*},
+};
 
 struct Ball {
 	pos:   f32,
 	speed: f32,
+	dir:   f32,
 	color: [u8; 3],
 }
 
@@ -16,6 +22,9 @@ struct Ball {
 pub struct BallsConfig {
 	#[educe(Default = 0.6)]
 	darken_factor: f32,
+	#[educe(Default = 0.8)]
+	speed:         f32,
+	color:         ColorConfig,
 }
 
 pub struct Balls {
@@ -27,9 +36,9 @@ pub struct Balls {
 }
 
 impl Balls {
-	pub fn new(db: sled::Tree) -> Self {
+	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = Balls {
-			config: db::load_effect_config(&db),
+			config: db::load_effect_config(&mut db),
 			db,
 
 			init: false,
@@ -54,8 +63,9 @@ impl Balls {
 				for _ in 0..strip.len() / 25 {
 					balls_for_strip.push(Ball {
 						pos:   0.0,
-						speed: rand::thread_rng().gen_range(0.2, 0.8),
-						color: HSV::new(rand::random(), 255, 255).into(),
+						speed: rand::thread_rng().gen_range(0.1..1.0),
+						dir:   1.0,
+						color: self.config.color.random().into(),
 					})
 				}
 				self.balls.push(balls_for_strip);
@@ -75,7 +85,7 @@ impl Balls {
 			let len = section.len() as f32;
 
 			for ball in balls {
-				ball.pos += ball.speed;
+				ball.pos += ball.speed * ball.dir * self.config.speed;
 				while ball.pos < 0.0 || ball.pos > len {
 					// debug!("fixing: {} len: {}", ball.pos, len);
 					if ball.pos < 0.0 {
@@ -83,12 +93,14 @@ impl Balls {
 					} else if ball.pos > len {
 						ball.pos = len - (ball.pos - len);
 					}
-					ball.speed = -ball.speed;
-					if rand::thread_rng().gen_range(0.0, 1.0) >= 0.7 {
-						ball.color = HSV::new(rand::random(), 255, 255).into();
+
+					ball.dir = -ball.dir;
+					if rand::thread_rng().gen_range(0.0..1.0) >= 0.7 {
+						ball.color = self.config.color.random().into();
+						ball.speed = rand::thread_rng().gen_range(0.1..1.0);
 					}
 				}
-				section[ball.pos.floor().min(len - 1.0).max(0.0) as usize] = ball.color;
+				section[ball.pos.floor() as usize] = ball.color;
 			}
 		}
 

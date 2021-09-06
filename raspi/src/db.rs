@@ -41,13 +41,17 @@ pub fn save_effect_config<T: Serialize + Debug>(
 	save_json(db, CONFIG_KEY, config)
 }
 
-pub fn load_effect_config<T: DeserializeOwned + Default>(db: &sled::Tree) -> T {
+pub fn load_effect_config<T: Serialize + DeserializeOwned + Debug + Default>(
+	db: &mut sled::Tree,
+) -> T {
 	match load_json(db, CONFIG_KEY) {
 		Ok(opt) => match opt {
 			Some(cfg) => cfg,
 			None => {
 				debug!("config not found in db, creating default");
-				Default::default()
+				let cfg: T = Default::default();
+				save_effect_config::<T>(db, &cfg).ok();
+				cfg
 			}
 		},
 		Err(err) => {
@@ -55,7 +59,9 @@ pub fn load_effect_config<T: DeserializeOwned + Default>(db: &sled::Tree) -> T {
 				"creating default config: failed to deserialize config from db: {}",
 				err
 			);
-			Default::default()
+			let cfg: T = Default::default();
+			save_effect_config::<T>(db, &cfg).ok();
+			cfg
 		}
 	}
 }

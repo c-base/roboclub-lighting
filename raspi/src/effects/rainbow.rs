@@ -2,7 +2,7 @@ use educe::Educe;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{colour::HSV, controller::Controller, db, effects::prelude::*};
+use crate::{color::HSV, controller::Controller, db, effects::prelude::*};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
 #[educe(Default)]
@@ -28,9 +28,9 @@ pub struct Rainbow {
 }
 
 impl Rainbow {
-	pub fn new(db: sled::Tree) -> Self {
+	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = Rainbow {
-			config: db::load_effect_config(&db),
+			config: db::load_effect_config(&mut db),
 			db,
 
 			wave_offset: 0.0,

@@ -1,13 +1,18 @@
 use std::{
 	error::Error,
-	sync::{Arc, RwLock},
+	sync::{Arc, Mutex},
 };
 
-use rocket::{config::Environment, response::NamedFile, Config, State};
+use rocket::{
+	config::{Environment, LoggingLevel},
+	response::NamedFile,
+	Config,
+	State,
+};
 use rocket_contrib::{json::Json, serve::StaticFiles};
 use rocket_cors::CorsOptions;
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::{error, info};
 
 use crate::effects::{runner::EffectRunner, EffectData};
 
@@ -27,9 +32,9 @@ struct Effects {
 
 #[get("/api/effects")]
 fn effects(
-	runner: State<Arc<RwLock<EffectRunner>>>,
+	runner: State<Arc<Mutex<EffectRunner>>>,
 ) -> Result<Json<Effects>, Box<dyn std::error::Error>> {
-	let runner = runner.read().unwrap();
+	let runner = runner.lock().unwrap();
 
 	Ok(Json(Effects {
 		active_effect: runner.active_effect()?,
@@ -45,9 +50,9 @@ struct ActiveEffectPayload {
 #[post("/api/active_effect", data = "<active_effect>")]
 fn set_active_effect(
 	active_effect: Json<ActiveEffectPayload>,
-	runner: State<Arc<RwLock<EffectRunner>>>,
+	runner: State<Arc<Mutex<EffectRunner>>>,
 ) -> Result<Json<EffectData>, Box<dyn std::error::Error>> {
-	let mut runner = runner.write().unwrap();
+	let mut runner = runner.lock().unwrap();
 
 	runner.set_active_effect(active_effect.active_effect.clone());
 
@@ -58,24 +63,25 @@ fn set_active_effect(
 fn set_effect_config(
 	effect: String,
 	config: Json<serde_json::Value>,
-	runner: State<Arc<RwLock<EffectRunner>>>,
+	runner: State<Arc<Mutex<EffectRunner>>>,
 ) -> Result<Json<EffectData>, Box<dyn std::error::Error>> {
-	let mut runner = runner.write().unwrap();
+	let mut runner = runner.lock().unwrap();
 
 	let data = runner.set_effect_config(effect, config.into_inner())?;
 
 	Ok(Json(data))
 }
 
-pub(crate) fn run(runner: Arc<RwLock<EffectRunner>>) -> Result<(), Box<dyn Error>> {
+pub(crate) fn run(runner: Arc<Mutex<EffectRunner>>) -> Result<(), Box<dyn Error>> {
 	let cors = CorsOptions::default().send_wildcard(true).to_cors()?;
 
 	let config = Config::build(Environment::Production)
 		.address("0.0.0.0")
 		.port(4444)
+		.log_level(LoggingLevel::Off)
 		.finalize()?;
 
-	let rkt = rocket::custom(config)
+	let rkt = rocket::custom(config.clone())
 		.mount("/", StaticFiles::from("public/"))
 		.mount(
 			"/",
@@ -84,6 +90,7 @@ pub(crate) fn run(runner: Arc<RwLock<EffectRunner>>) -> Result<(), Box<dyn Error
 		.attach(cors)
 		.manage(runner);
 
+	info!("starting http server on {}:{}", config.address, config.port);
 	let err = rkt.launch();
 	error!("server died: {:?}", err);
 	Err(Box::new(err))

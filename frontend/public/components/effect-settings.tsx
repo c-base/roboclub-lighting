@@ -1,8 +1,8 @@
-import { JSONSchema7 } from "json-schema";
+import { JSONSchema7, JSONSchema7Definition } from "json-schema";
 import { useMemo } from "preact/hooks";
 import clsx from "clsx";
-import { styled } from "goober";
-import { Sliders, Zap } from "preact-feather";
+import { Sliders } from "preact-feather";
+import { dset } from "dset";
 
 import { EffectData } from "../state/api";
 import { STATES } from "../state/state";
@@ -29,7 +29,7 @@ export function EffectSettings({
 
 	function patchAndUpdateConfig(field, value) {
 		let config: { [name: string]: any } = JSON.parse(JSON.stringify(effectData.config));
-		config[field] = value;
+		dset(config, field, value);
 		setEffectConfig(config);
 	}
 
@@ -49,6 +49,7 @@ export function EffectSettings({
 
 type Field = {
 	name: string;
+	field: string;
 	value: any;
 	schema: JSONSchema7 | null;
 };
@@ -67,18 +68,7 @@ function Settings({
 			return [];
 		}
 
-		return Object.keys(config).map((name) => {
-			let propertySchema = schema.properties[name];
-			if (typeof propertySchema === "boolean") {
-				propertySchema = null;
-			}
-
-			return {
-				name,
-				value: config[name],
-				schema: propertySchema as JSONSchema7 | null,
-			};
-		});
+		return createFields(config, schema.properties as any, schema.definitions as any);
 	}, [config, schema]);
 
 	if (fields.length === 0) {
@@ -88,10 +78,37 @@ function Settings({
 	return (
 		<form onSubmit={(e) => e.preventDefault} class={styles.form}>
 			{fields.map((f) => (
-				<Setting field={f} onChange={(value) => update(f.name, value)} />
+				<Setting field={f} onChange={(value) => update(f.field, value)} />
 			))}
 		</form>
 	);
+}
+
+type DefinitionMap = {
+	[k: string]: JSONSchema7,
+}
+
+function createFields(config: Record<string, any>, properties: DefinitionMap, definitions: DefinitionMap, prefix = []): Field[] {
+	return Object.keys(config).flatMap((name) => {
+		let propertySchema = properties[name];
+		if (typeof propertySchema === "boolean") {
+			propertySchema = null;
+		}
+
+		if (typeof config[name] === "object") {
+			if (typeof propertySchema["$ref"] === "string") {
+				let ref = propertySchema["$ref"]
+				return createFields(config[name], definitions[ref.substring("#/definitions/".length)].properties as any, definitions, prefix.concat(name));
+			}
+		}
+
+		return {
+			name: name,
+			field: [...prefix, name].join("."),
+			value: config[name],
+			schema: propertySchema as JSONSchema7 | null,
+		};
+	});
 }
 
 function getInputType(schema: JSONSchema7): HTMLInputElement["type"] {
