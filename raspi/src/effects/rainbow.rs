@@ -2,7 +2,7 @@ use educe::Educe;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{color::HSV, controller::Controller, db, effects::prelude::*};
+use crate::{controller::Controller, db, effects::prelude::*};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
 #[educe(Default)]
@@ -30,7 +30,7 @@ pub struct Rainbow {
 impl Rainbow {
 	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = Rainbow {
-			config: db::load_effect_config(&mut db),
+			config: db::load_config(&mut db),
 			db,
 
 			wave_offset: 0.0,
@@ -46,7 +46,7 @@ impl Rainbow {
 		self.config = config;
 	}
 
-	fn run(&mut self, ctrl: &mut Controller) {
+	fn run(&mut self, ctrl: &mut impl LedController) {
 		let leds = ctrl.state_mut_flat();
 
 		self.wave_offset += self.config.wave_speed;
@@ -57,17 +57,16 @@ impl Rainbow {
 				% self.config.wave_frequency)
 				/ self.config.wave_frequency
 				* 2.0 * core::f32::consts::PI;
-			let val =
-				255 - (self.config.wave_influence * ((progress.sin() + 1.0) * 0.5 * 255.0)) as u8;
+			let val = 1.0 - (self.config.wave_influence * ((progress.sin() + 1.0) * 0.5));
 
 			// let val = perlin.perlin(i as f32 / 10.0, progress / 20.0);
 			// if i == 0 {
 			//   print(val);
 			// }
 
-			let hue = ((i as f32 + self.hue_offset * self.config.hue_factor) % 255.0) as u8;
+			let hue = ((i as f32 + self.hue_offset * self.config.hue_factor) % 360.0);
 
-			leds[i] = HSV::new(hue, 255, val).into();
+			leds[i] = Hsv::new(hue, 1.0, val).into();
 		}
 
 		ctrl.write_state();

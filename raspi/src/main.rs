@@ -11,15 +11,16 @@ use std::{
 	time::Duration,
 };
 
-use anyhow::Context;
+use color_eyre::{eyre::WrapErr, Result};
 // use jsonrpc_tcp_server::{jsonrpc_core::IoHandler, ServerBuilder};
 use rppal::spi::Bus;
 use tracing::info;
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::{util::SubscriberInitExt, FmtSubscriber};
 
 use crate::{
-	controller::Controller,
-	effects::{flash_rainbow::FlashRainbow, moving_lights::MovingLights},
+	controller::{Controller, ControllerConfig},
+	db::load_config,
+	effects::*,
 };
 
 // mod audio;
@@ -30,25 +31,35 @@ mod effects;
 mod http;
 mod jsonrpc;
 mod noise;
+pub mod runner;
 
 pub const APP_NAME: &'static str = "roboclub-led-controller";
 
-fn main() -> Result<(), Box<dyn Error>> {
-	color_backtrace::install();
+fn install_tracing() {
+	// use tracing_error::ErrorLayer;
+	use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
-	let filter = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_owned());
+	let filter = EnvFilter::try_from_default_env()
+		.or_else(|_| EnvFilter::try_new("info"))
+		.unwrap();
 
-	let sub = FmtSubscriber::builder()
+	FmtSubscriber::builder()
 		.pretty()
 		.compact()
 		.with_env_filter(filter)
-		.finish();
+		.finish()
+		.init();
+}
 
-	tracing::subscriber::set_global_default(sub).with_context(|| "failed to start the logger.")?;
+fn main() -> Result<()> {
+	color_backtrace::install();
+	color_eyre::install()?;
 
-	let mut db = sled::open("db").with_context(|| "should be able to open sled db")?;
+	install_tracing();
 
-	// 	tokio::runtime::Builder::new_current_thread()
+	let mut db = sled::open("db").wrap_err("should be able to open sled db")?;
+
+	// tokio::runtime::Builder::new_current_thread()
 	// 		.enable_all()
 	// 		.build()?
 	// 		.block_on(start())
@@ -56,8 +67,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 	//
 	// #[instrument]
 	// async fn start() -> Result<(), Box<dyn Error>> {
-	const GPIO_READY: u8 = 17;
-	let mut controller = Controller::new(GPIO_READY, Bus::Spi0)?;
+
+	const GPIO_READY: u8 = 0;
+
+	let mut ctrl_db = db
+		.open_tree("controller")
+		.expect("should be able to open a tree");
+	let ctrl_config = load_config(&mut ctrl_db);
+	let mut controller = Controller::new(ctrl_config, GPIO_READY, Bus::Spi0)?;
+	drop(ctrl_db);
 
 	// let mut frames = audio::get_frames().unwrap();
 	//
@@ -139,38 +157,48 @@ fn main() -> Result<(), Box<dyn Error>> {
 			db: &mut sled::Db,
 			name: &str,
 			init: T,
-		) {
-			let tree = db.open_tree(name).expect("should be able to open a tree");
+		) -> Result<()> {
+			let tree = db
+				.open_tree(name)
+				.wrap_err("should be able to open a tree")?;
 			map.insert(name.to_string(), Box::new(init(tree)));
+			Ok(())
 		}
 
 		use effects::*;
 
-		add_effect(&mut effect_map, &mut db, "meteors", |db| Meteors::new(db));
-		add_effect(&mut effect_map, &mut db, "balls", |db| Balls::new(db));
+		add_effect(&mut effect_map, &mut db, "balls", |db| Balls::new(db))?;
 		add_effect(&mut effect_map, &mut db, "explosions", |db| {
 			Explosions::new(db)
-		});
-		add_effect(&mut effect_map, &mut db, "rainbow", |db| Rainbow::new(db));
-		add_effect(&mut effect_map, &mut db, "snake", |db| Snake::new(db));
-		add_effect(&mut effect_map, &mut db, "random", |db| {
-			RandomNoise::new(db)
-		});
+		})?;
 		add_effect(&mut effect_map, &mut db, "flash_rainbow", |db| {
 			FlashRainbow::new(db)
-		});
-		add_effect(&mut effect_map, &mut db, "police", |db| Police::new(db));
+		})?;
+		add_effect(&mut effect_map, &mut db, "flash_rainbow_noise", |db| {
+			FlashRainbowNoise::new(db)
+		})?;
+		add_effect(&mut effect_map, &mut db, "flash_rainbow_random", |db| {
+			FlashRainbowRandom::new(db)
+		})?;
+		add_effect(&mut effect_map, &mut db, "meteors", |db| Meteors::new(db))?;
 		add_effect(&mut effect_map, &mut db, "moving_lights", |db| {
 			MovingLights::new(db)
-		});
+		})?;
+		add_effect(&mut effect_map, &mut db, "police", |db| Police::new(db))?;
+		add_effect(&mut effect_map, &mut db, "rainbow", |db| Rainbow::new(db))?;
+		add_effect(&mut effect_map, &mut db, "random", |db| {
+			RandomNoise::new(db)
+		})?;
+		add_effect(&mut effect_map, &mut db, "snake", |db| Snake::new(db))?;
+		add_effect(&mut effect_map, &mut db, "solid", |db| Solid::new(db))?;
 		add_effect(&mut effect_map, &mut db, "static_rainbow", |db| {
 			StaticRainbow::new(db)
-		});
+		})?;
 
 		let tree = db
 			.open_tree("controller")
-			.expect("should be able to open a tree");
-		let runner = runner::EffectRunner::new(tree, effect_map);
+			.wrap_err("should be able to open a tree")?;
+		let runner = runner::EffectRunner::new(tree, effect_map, controller);
 		Arc::new(Mutex::new(runner))
 	};
 
@@ -180,7 +208,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 			info!("starting effect loop");
 			loop {
 				let mut runner = runner.lock().unwrap();
-				runner.tick(&mut controller);
+				runner.tick();
 				drop(runner);
 				// std::thread::yield_now();
 				std::thread::sleep(Duration::from_micros(100));

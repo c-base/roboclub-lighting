@@ -4,7 +4,7 @@ use educe::Educe;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{color::HSV, controller::Controller, db, effects::prelude::*};
+use crate::{config::color::ColorGradient, controller::Controller, db, effects::prelude::*};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
 #[educe(Default)]
@@ -21,10 +21,10 @@ pub struct SnakeConfig {
 	#[educe(Default = 1.0)]
 	hue_factor: f32,
 
-	#[educe(Default = 150)]
-	hue_min: u8,
-	#[educe(Default = 200)]
-	hue_max: u8,
+	#[educe(Default = 180.0)]
+	hue_min: f32,
+	#[educe(Default = 270.0)]
+	hue_max: f32,
 }
 
 pub struct Snake {
@@ -38,7 +38,7 @@ pub struct Snake {
 impl Snake {
 	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = Snake {
-			config: db::load_effect_config(&mut db),
+			config: db::load_config(&mut db),
 			db,
 
 			wave_offset: 0.0,
@@ -54,7 +54,7 @@ impl Snake {
 		self.config = config;
 	}
 
-	fn run(&mut self, ctrl: &mut Controller) {
+	fn run(&mut self, ctrl: &mut impl LedController) {
 		let state = ctrl.state_mut();
 
 		let SnakeConfig {
@@ -76,18 +76,17 @@ impl Snake {
 				/ wave_frequency * 2.0
 				* PI;
 
-			let val_top = 255 - (wave_influence * ((progress.sin() + 1.0) * 0.5 * 255.0)) as u8;
-			let val_bottom =
-				255 - (wave_influence * (((progress + PI).sin() + 1.0) * 0.5 * 255.0)) as u8;
+			let val_top = 1.0 - (wave_influence * ((progress.sin() + 1.0) * 0.5));
+			let val_bottom = 1.0 - (wave_influence * (((progress + PI).sin() + 1.0) * 0.5));
 
-			let hue = ((hue_min as u16
-				+ (((i as f32 + self.hue_offset) * hue_factor) % (hue_max - hue_min) as f32)
-					as u16) % 255) as u8;
+			let hue = (hue_min
+				+ (((i as f32 + self.hue_offset) * hue_factor) % (hue_max - hue_min)))
+				% 360.0;
 
-			state[0][state[0].len() - i - 1] = HSV::new(hue, 255, val_top).into();
-			state[1][state[1].len() - i - 1] = HSV::new(hue, 255, val_bottom).into();
+			state[0][state[0].len() - i - 1] = Hsv::new(hue, 1.0, val_top).into();
+			state[1][state[1].len() - i - 1] = Hsv::new(hue, 1.0, val_bottom).into();
 			// state[1][i] = HSV::new(hue, 255, val_bottom).into();
-			state[2][state[2].len() - i - 1] = HSV::new(hue, 255, val_bottom).into();
+			state[2][state[2].len() - i - 1] = Hsv::new(hue, 1.0, val_bottom).into();
 		}
 		ctrl.write_state();
 	}

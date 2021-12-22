@@ -1,7 +1,13 @@
 use std::time::{Duration, Instant};
 
-use crate::controller::Controller;
-pub use crate::{color::*, effect, effects::Effect};
+pub use palette::{IntoColor, Mix, Shade};
+
+pub use crate::{
+	color::*,
+	controller::{Controller, LedController},
+	effect,
+	effects::Effect,
+};
 
 pub const NUM_LEDS: usize = common::LEDS_PER_STRIP;
 
@@ -47,50 +53,50 @@ pub fn sleep_ms(ms: u64) {
 //
 // pub type Result<T> = std::result::Result<T, Error>;
 
-fn fade(val: u8, fade_value: u8) -> u8 {
-	let val = val as f32;
+fn fade(val: f32, fade_value: f32) -> f32 {
 	if val <= 10.0 {
-		0
+		0.0
 	} else {
-		(val - (val * fade_value as f32 / 256.0)) as u8
+		(val - (val * fade_value / 256.0))
 	}
 }
 
-pub fn fade_to_black_col(led: &mut [u8; 3], fade_value_r: u8, fade_value_g: u8, fade_value_b: u8) {
-	led[0] = fade(led[0], fade_value_r);
-	led[1] = fade(led[1], fade_value_g);
-	led[2] = fade(led[2], fade_value_b);
+pub fn fade_to_black_col(led: &mut Rgba, fade_value_r: f32, fade_value_g: f32, fade_value_b: f32) {
+	led.red = fade(led.red, fade_value_r);
+	led.green = fade(led.green, fade_value_g);
+	led.blue = fade(led.blue, fade_value_b);
 }
 
-pub fn set_all_delay(ctrl: &mut Controller, color: [u8; 3], on: bool, delay_ms: u64) {
-	set_all(ctrl, if on { color } else { [0, 0, 0] });
+pub fn set_all_delay(ctrl: &mut impl LedController, color: &Rgba, on: bool, delay_ms: u64) {
+	let black = Rgba::default();
+	set_all(ctrl, if on { color } else { &black });
 	sleep_ms(delay_ms);
 }
 
-pub fn set_all(ctrl: &mut Controller, color: [u8; 3]) {
+pub fn set_all(ctrl: &mut impl LedController, color: &Rgba) {
 	let data = ctrl.state_mut_flat();
 	for i in 0..data.len() {
-		data[i] = color;
+		data[i] = color.clone();
 	}
 	ctrl.write_state();
 }
 
-pub fn darken_rgb(rgb: [u8; 3], factor: f32) -> [u8; 3] {
-	[
-		((rgb[0] as f32) * factor) as u8,
-		((rgb[1] as f32) * factor) as u8,
-		((rgb[2] as f32) * factor) as u8,
-	]
-}
-
-pub fn blend_rgb(from: [u8; 3], to: [u8; 3], factor: f32) -> [u8; 3] {
-	let mut iter = (0..3).map(|i| lerp(from[i] as f32, to[i] as f32, factor) as u8);
-	[
-		iter.next().unwrap(),
-		iter.next().unwrap(),
-		iter.next().unwrap(),
-	]
-}
+// pub fn darken_rgb(rgb: [u8; 3], factor: f32) -> [u8; 3] {
+// 	[
+// 		((rgb[0] as f32) * factor) as u8,
+// 		((rgb[1] as f32) * factor) as u8,
+// 		((rgb[2] as f32) * factor) as u8,
+// 	]
+// }
+//
+// pub fn blend_rgb(from: [u8; 3], to: [u8; 3], factor: f32) -> [u8; 3] {
+// 	let mut iter = (0..3).map(|i| lerp(from[i] as f32, to[i] as f32, factor) as u8);
+// 	[
+// 		iter.next().unwrap(),
+// 		iter.next().unwrap(),
+// 		iter.next().unwrap(),
+// 	]
+// }
 
 pub fn lerp(from: f32, to: f32, factor: f32) -> f32 {
 	from + factor * (to - from)

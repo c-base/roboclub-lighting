@@ -13,7 +13,7 @@ export function Sidebar({
 }: {
 	state: string;
 	activeEffect: string;
-	effects: EffectData[];
+	effects: Record<string, EffectData>;
 	setActiveEffect: (activeEffect: string) => void;
 }) {
 	return (
@@ -23,13 +23,15 @@ export function Sidebar({
 				<p>loading...</p>
 			) : (
 				<ul>
-					{effects.map((e) => (
-						<li class={clsx({ [styles.active]: activeEffect === e.name })}>
-							<button onClick={() => setActiveEffect(e.name)}>
-								<Zap size={20} /> &nbsp; {" " + prettyName(e.name)}
-							</button>
-						</li>
-					))}
+					{Object.values(effects)
+						.sort((a, b) => (a.name > b.name ? 1 : a.name < b.name ? -1 : 0))
+						.map((e) => (
+							<li class={clsx({ [styles.active]: activeEffect === e.name })}>
+								<button onClick={() => setActiveEffect(e.name)}>
+									<Zap size={20} /> &nbsp; {" " + prettyName(e.name)}
+								</button>
+							</li>
+						))}
 				</ul>
 			)}
 		</nav>

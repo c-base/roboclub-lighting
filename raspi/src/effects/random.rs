@@ -1,16 +1,21 @@
 use educe::Educe;
+use palette::Saturate;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{controller::Controller, db, effects::prelude::*, noise};
+use crate::{config::color::Color, controller::Controller, db, effects::prelude::*, noise};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
 #[educe(Default)]
 pub struct RandomNoiseConfig {
+	color: Color,
+
 	#[educe(Default = 0.03)]
 	speed: f32,
 	#[educe(Default = 20.0)]
 	size:  f32,
+	// #[educe(Default = 1.0)]
+	// brightness: f32,
 }
 
 pub struct RandomNoise {
@@ -23,7 +28,7 @@ pub struct RandomNoise {
 impl RandomNoise {
 	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = RandomNoise {
-			config: db::load_effect_config(&mut db),
+			config: db::load_config(&mut db),
 			db,
 
 			counter: 0.0,
@@ -38,7 +43,7 @@ impl RandomNoise {
 		self.config = config;
 	}
 
-	fn run(&mut self, ctrl: &mut Controller) {
+	fn run(&mut self, ctrl: &mut impl LedController) {
 		let state = ctrl.state_mut();
 
 		self.counter += self.config.speed;
@@ -64,14 +69,17 @@ impl RandomNoise {
 				// let num = rand.gen_range(0, 55);
 				// let num = rand.gen_range(0.0, 1.0);
 				let num = 0.0;
-				let num = (noise::simplex3d(i as f32 / self.config.size, num as f32, self.counter)
-					* 255.0) as u8;
-				let col = [num, num, num];
+				let num = (noise::simplex3d(i as f32 / self.config.size, num as f32, self.counter));
+				// let num = if num > 0 {
+				// 	self.config.brightness / num
+				// } else {
+				// 	num
+				// };
+				// let num = (num as f32 * (self.config.brightness));
 
-				state[strip][i] = col;
-				// for i in slice {
-				// 	*i = col;
-				// }
+				let col: Hsv = self.config.color.value().darken(1.0 - num).into();
+
+				state[strip][i] = col.into();
 			}
 		}
 

@@ -1,10 +1,12 @@
 [env]
 MODE = "release"
-TARGET = "aarch64-unknown-linux-musl" #"aarch64-unknown-linux-gnu"
+#TARGET = "aarch64-unknown-linux-musl"
+TARGET = "aarch64-unknown-linux-gnu"
 #PKG_CONFIG_PATH = "/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot/usr/lib"
 #PKG_CONFIG_SYSROOT_DIR = "./sysroot"
 #PKG_CONFIG_PATH = "/usr/arm-linux-gnueabihf/lib;/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot;/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot/pulseaudio"
-RPI_HOST = "10.0.0.239"
+RPI_HOST = "roboblast.cbrp3.c-base.org"
+#RPI_HOST = "10.10.0.192"
 RPI_USER = "ubuntu"
 RPI_PASS = "roboclub"
 
@@ -15,7 +17,7 @@ args = ["build", "-p", "robolab", "--target", "${TARGET}", "--release"]
 
 [tasks.copy-bin]
 command = "sshpass"
-args = ["-p", "${RPI_PASS}", "rsync", "-avzz", "--info=progress2", "../target/${TARGET}/${MODE}/${CARGO_MAKE_PROJECT_NAME}", "${RPI_USER}@${RPI_HOST}:/home/${RPI_USER}/leds/"]
+args = ["-p", "${RPI_PASS}", "rsync", "-avzz", "--info=progress2", "./target/${TARGET}/${MODE}/${CARGO_MAKE_PROJECT_NAME}", "${RPI_USER}@${RPI_HOST}:/home/${RPI_USER}/leds/"]
 dependencies = [
     "build"
 ]

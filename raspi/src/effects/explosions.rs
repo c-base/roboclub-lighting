@@ -4,30 +4,31 @@ use std::{
 };
 
 use educe::Educe;
+use palette::{IntoColor, Mix, Shade};
 use rand::{thread_rng, Rng};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-	color::HSV,
+	config::color::ColorGradient,
 	controller::Controller,
 	db,
-	effects::{config::color::ColorConfig, prelude, prelude::*},
+	effects::{config::color::ColorConfig, prelude::*},
 };
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
 #[educe(Default)]
 pub struct ExplosionsConfig {
+	colors: ColorGradient,
+
 	#[educe(Default = 250)]
 	explosion_interval: u64,
 	#[educe(Default = 0.5)]
 	start_speed:        f32,
 	#[educe(Default = 0.99)]
 	speed_falloff:      f32,
-	#[educe(Default = 0.99)]
+	#[educe(Default = 0.05)]
 	darken_factor:      f32,
-
-	color: ColorConfig,
 }
 
 struct Explosion {
@@ -35,7 +36,7 @@ struct Explosion {
 	pos:   i32,
 	speed: f32,
 	width: f32,
-	col:   HSV,
+	col:   Hsv,
 }
 
 pub struct Explosions {
@@ -49,7 +50,7 @@ pub struct Explosions {
 impl Explosions {
 	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = Explosions {
-			config: db::load_effect_config(&mut db),
+			config: db::load_config(&mut db),
 			db,
 
 			last: Instant::now(),
@@ -65,7 +66,7 @@ impl Explosions {
 		self.config = config;
 	}
 
-	fn run(&mut self, ctrl: &mut Controller) {
+	fn run(&mut self, ctrl: &mut impl LedController) {
 		let mut duration = Duration::from_millis(self.config.explosion_interval);
 
 		let mut rand = thread_rng();
@@ -84,14 +85,14 @@ impl Explosions {
 				pos,
 				speed: self.config.start_speed,
 				width: 0.0,
-				col: self.config.color.random(),
+				col: self.config.colors.random(),
 			});
 			self.last = now;
 		}
 
 		for strip in state.iter_mut() {
 			for led in strip.iter_mut() {
-				*led = prelude::darken_rgb(*led, self.config.darken_factor);
+				*led = led.darken(self.config.darken_factor).into();
 			}
 		}
 
@@ -119,20 +120,20 @@ impl Explosions {
 			if upper_idx > 0 && lower_idx <= len {
 				let slice = &mut strip.range(lower_idx..upper_idx);
 
-				let col = explosion.col.into();
+				let col: Rgba = explosion.col.clone().into();
 
 				// anti-aliasing™
 				let lower_factor = 1.0 - lower_end % 1.0;
 				let upper_factor = upper_end % 1.0;
 
 				for i in 0..slice.len() {
-					let cur = slice[i];
+					let cur = &slice[i];
 					slice[i] = if i == 0 {
-						prelude::blend_rgb(cur, col, lower_factor)
+						cur.mix(&col, lower_factor).into()
 					} else if i == slice.len() - 1 {
-						prelude::blend_rgb(cur, col, upper_factor)
+						cur.mix(&col, upper_factor).into()
 					} else {
-						explosion.col.into()
+						explosion.col.clone().into()
 					};
 				}
 			}

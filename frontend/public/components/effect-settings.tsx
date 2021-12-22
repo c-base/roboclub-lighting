@@ -1,4 +1,4 @@
-import { JSONSchema7, JSONSchema7Definition } from "json-schema";
+import { JSONSchema7 } from "json-schema";
 import { useMemo } from "preact/hooks";
 import clsx from "clsx";
 import { Sliders } from "preact-feather";
@@ -9,6 +9,7 @@ import { STATES } from "../state/state";
 
 import styles from "./effect-settings.module.css";
 import { prettyName } from "../util/pretty-names";
+import { ColorPicker, MultiColorPicker } from "./color-picker";
 
 export function EffectSettings({
 	effectData,
@@ -52,6 +53,7 @@ type Field = {
 	field: string;
 	value: any;
 	schema: JSONSchema7 | null;
+	custom: "color" | "color_gradient" | null;
 };
 
 function Settings({
@@ -85,10 +87,15 @@ function Settings({
 }
 
 type DefinitionMap = {
-	[k: string]: JSONSchema7,
-}
+	[k: string]: JSONSchema7;
+};
 
-function createFields(config: Record<string, any>, properties: DefinitionMap, definitions: DefinitionMap, prefix = []): Field[] {
+function createFields(
+	config: Record<string, any>,
+	properties: DefinitionMap,
+	definitions: DefinitionMap,
+	prefix = []
+): Field[] {
 	return Object.keys(config).flatMap((name) => {
 		let propertySchema = properties[name];
 		if (typeof propertySchema === "boolean") {
@@ -97,8 +104,35 @@ function createFields(config: Record<string, any>, properties: DefinitionMap, de
 
 		if (typeof config[name] === "object") {
 			if (typeof propertySchema["$ref"] === "string") {
-				let ref = propertySchema["$ref"]
-				return createFields(config[name], definitions[ref.substring("#/definitions/".length)].properties as any, definitions, prefix.concat(name));
+				let ref = propertySchema["$ref"];
+				let definition = ref.substring("#/definitions/".length);
+
+				if (definition === "Color") {
+					return {
+						name,
+						field: [...prefix, name].join("."),
+						value: config[name],
+						schema: null,
+						custom: "color",
+					};
+				}
+
+				if (definition === "ColorGradient") {
+					return {
+						name,
+						field: [...prefix, name].join("."),
+						value: config[name],
+						schema: null,
+						custom: "color_gradient",
+					};
+				}
+
+				return createFields(
+					config[name],
+					definitions[ref.substring("#/definitions/".length)].properties as any,
+					definitions,
+					prefix.concat(name)
+				);
 			}
 		}
 
@@ -107,6 +141,7 @@ function createFields(config: Record<string, any>, properties: DefinitionMap, de
 			field: [...prefix, name].join("."),
 			value: config[name],
 			schema: propertySchema as JSONSchema7 | null,
+			custom: null,
 		};
 	});
 }
@@ -153,13 +188,16 @@ function readableValue(schema: JSONSchema7, value: any) {
 function Setting({ field, onChange }: { field: Field; onChange: (value: any) => void }) {
 	let id = `input__${field.name}`;
 
-	let inputType = getInputType(field.schema);
-
 	let label = prettyName(field.name);
+	if (field.custom !== null) {
+		return <CustomSetting field={field} onChange={onChange} />;
+	}
+
 	if (field.schema === null) {
 		label = label + " (invalid schema)";
 	}
 
+	let inputType = getInputType(field.schema);
 	let value = readableValue(field.schema, field.value);
 
 	return (
@@ -169,8 +207,26 @@ function Setting({ field, onChange }: { field: Field; onChange: (value: any) => 
 				type={inputType}
 				disabled={field.schema === null}
 				value={value}
+				checked={inputType === "checkbox" && value}
 				onChange={(e) => onChange(getValue(field.schema, e.currentTarget))}
 			/>
 		</fieldset>
 	);
+}
+
+function CustomSetting({ field, onChange }: { field: Field; onChange: (value: any) => void }) {
+	if (field.custom === "color") {
+		return <ColorPicker value={field.value} onChange={onChange} />;
+	}
+
+	if (field.custom === "color_gradient") {
+		return (
+			<MultiColorPicker
+				values={[field.value.from, field.value.to]}
+				onChange={([from, to]) => onChange({ from, to })}
+			/>
+		);
+	}
+
+	throw new Error("invalid custom input: " + field.custom);
 }

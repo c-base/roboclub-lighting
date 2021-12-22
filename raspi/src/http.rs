@@ -1,8 +1,10 @@
 use std::{
+	collections::HashMap,
 	error::Error,
 	sync::{Arc, Mutex},
 };
 
+use color_eyre::Result;
 use rocket::{
 	config::{Environment, LoggingLevel},
 	response::NamedFile,
@@ -14,7 +16,10 @@ use rocket_cors::CorsOptions;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
-use crate::effects::{runner::EffectRunner, EffectData};
+use crate::{
+	effects::EffectData,
+	runner::{EffectAPI, EffectRunner},
+};
 
 #[derive(Serialize)]
 struct Context {}
@@ -26,8 +31,8 @@ fn index() -> Option<NamedFile> {
 
 #[derive(Serialize)]
 struct Effects {
-	active_effect: EffectData,
-	effects:       Vec<EffectData>,
+	active_effect: String,
+	effects:       HashMap<String, EffectData>,
 }
 
 #[get("/api/effects")]
@@ -37,8 +42,8 @@ fn effects(
 	let runner = runner.lock().unwrap();
 
 	Ok(Json(Effects {
-		active_effect: runner.active_effect()?,
-		effects:       runner.effects()?,
+		active_effect: runner.get_active_effect()?.name.clone(),
+		effects:       runner.get_effects()?,
 	}))
 }
 
@@ -56,7 +61,7 @@ fn set_active_effect(
 
 	runner.set_active_effect(active_effect.active_effect.clone());
 
-	Ok(Json(runner.active_effect()?))
+	Ok(Json(runner.get_active_effect()?))
 }
 
 #[put("/api/effects/<effect>", data = "<config>")]
@@ -72,7 +77,7 @@ fn set_effect_config(
 	Ok(Json(data))
 }
 
-pub(crate) fn run(runner: Arc<Mutex<EffectRunner>>) -> Result<(), Box<dyn Error>> {
+pub(crate) fn run(runner: Arc<Mutex<EffectRunner>>) -> Result<()> {
 	let cors = CorsOptions::default().send_wildcard(true).to_cors()?;
 
 	let config = Config::build(Environment::Production)
@@ -93,5 +98,5 @@ pub(crate) fn run(runner: Arc<Mutex<EffectRunner>>) -> Result<(), Box<dyn Error>
 	info!("starting http server on {}:{}", config.address, config.port);
 	let err = rkt.launch();
 	error!("server died: {:?}", err);
-	Err(Box::new(err))
+	Err(err.into())
 }

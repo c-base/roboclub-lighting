@@ -1,6 +1,5 @@
 import { LocationProvider } from "preact-iso";
 import { useCallback, useMemo } from "preact/hooks";
-import { styled } from "goober";
 
 import { useMachine } from "./util/state-machine";
 
@@ -43,7 +42,8 @@ export function App() {
 	);
 
 	let activeEffectData: EffectData | null = useMemo(() => {
-		let data = effects.find((e) => e.name === activeEffect);
+		if (!activeEffect) return null;
+		let data = effects[activeEffect];
 		return data == null ? null : data;
 	}, [activeEffect, effects]);
 

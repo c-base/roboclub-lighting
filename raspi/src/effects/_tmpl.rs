@@ -32,7 +32,7 @@ impl Effect {
 		self.config = config;
 	}
 
-	fn run(&mut self, ctrl: &mut Controller) {}
+	fn run(&mut self, ctrl: &mut impl LedController) {}
 }
 
 effect!(Effect, EffectConfig);

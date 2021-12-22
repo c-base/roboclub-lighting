@@ -7,7 +7,7 @@ use educe::Educe;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{color::HSV, controller::Controller, db, effects::prelude::*};
+use crate::{controller::Controller, db, effects::prelude::*};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
 #[educe(Default)]
@@ -31,7 +31,7 @@ pub struct MovingLights {
 impl MovingLights {
 	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = MovingLights {
-			config: db::load_effect_config(&mut db),
+			config: db::load_config(&mut db),
 			db,
 
 			anim: MovingLightStripsAnimation::new(NUM_LEDS, 15),
@@ -47,7 +47,7 @@ impl MovingLights {
 		self.config = config;
 	}
 
-	fn run(&mut self, ctrl: &mut Controller) {
+	fn run(&mut self, ctrl: &mut impl LedController) {
 		let frequency_ms = 1000 / self.config.frequency;
 
 		let now = Instant::now();
@@ -57,7 +57,10 @@ impl MovingLights {
 		}
 		self.anim.shift_all_pixels();
 
-		ctrl.write(self.anim.as_slice().iter());
+		for strip in ctrl.state_mut() {
+			let len = strip.len();
+			strip.clone_from_slice(&self.anim.as_slice()[0..len]);
+		}
 
 		sleep_ms(frequency_ms);
 	}
@@ -66,19 +69,19 @@ impl MovingLights {
 effect!(MovingLights, MovingLightsConfig);
 
 pub struct MovingLightStripsAnimation {
-	rgb_data:    Vec<[u8; 3]>,
+	rgb_data:    Vec<Rgba>,
 	impulse_len: usize,
 }
 
 impl MovingLightStripsAnimation {
 	pub fn new(led_count: usize, impulse_len: usize) -> Self {
 		MovingLightStripsAnimation {
-			rgb_data: vec![[0; 3]; led_count + impulse_len],
+			rgb_data: vec![Default::default(); led_count + impulse_len],
 			impulse_len,
 		}
 	}
 
-	pub fn as_slice(&self) -> &[[u8; 3]] {
+	pub fn as_slice(&self) -> &[Rgba] {
 		&self.rgb_data[self.impulse_len..]
 	}
 }
@@ -93,7 +96,7 @@ impl MovingLightStripsAnimation {
 			let i = upper_border - 1 - i;
 
 			if i == 0 {
-				self.rgb_data[i] = [0; 3];
+				self.rgb_data[i] = Rgba::default();
 			} else {
 				self.rgb_data.swap(i, i - 1);
 			}
@@ -103,12 +106,13 @@ impl MovingLightStripsAnimation {
 	fn add_next_light_impulse(&mut self) {
 		// let (r, g, b) = get_random_pixel_val();
 
-		let i = rand::random::<u8>();
-		let rgb = HSV::new(i, 255, 255).into();
+		let i = rand::random::<f32>() * 360.0;
+		let color = Hsv::new(i, 1.0, 1.0);
 
 		for i in 0..self.impulse_len {
 			let factor = 1.0 - ((i as f32 / (self.impulse_len as f32 / 2.0)) - 1.0).abs();
-			self.rgb_data[i] = darken_rgb(rgb, factor);
+			let color: Hsv = color.darken(factor).into();
+			self.rgb_data[i] = color.into();
 		}
 
 		// self.rgb_data[00] = darken_rgb(r, g, b, 0.1);

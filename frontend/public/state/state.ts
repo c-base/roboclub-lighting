@@ -28,14 +28,14 @@ export const MESSAGES = { ...STD_MESSAGES, ...CUSTOM_MESSAGES };
 type MESSAGE_TYPES = typeof MESSAGES;
 
 type Context = {
-	effects: EffectData[];
+	effects: Record<string, EffectData>;
 	activeEffect: string;
 };
 
 type LoadEffectsSuccessEvent = {
 	type: MESSAGE_TYPES["SUCCESS"];
-	effects: EffectData[];
-	activeEffect: EffectData;
+	effects: Record<string, EffectData>;
+	activeEffect: string;
 };
 
 type SetActiveEffectSuccessEvent = {
@@ -57,7 +57,7 @@ export const machine = createMachine<Context>({
 	id: "dropdown",
 	initial: STATES.LOADING,
 	context: {
-		effects: [],
+		effects: {},
 		activeEffect: "",
 	},
 	states: {
@@ -68,7 +68,7 @@ export const machine = createMachine<Context>({
 					target: STATES.LOADED,
 					actions: assign<Context, LoadEffectsSuccessEvent>({
 						effects: (_, event) => event.effects,
-						activeEffect: (_, event) => event.activeEffect.name,
+						activeEffect: (_, event) => event.activeEffect,
 					}),
 				},
 				[MESSAGES.FAILURE]: STATES.ERROR,
@@ -86,9 +86,8 @@ export const machine = createMachine<Context>({
 					target: STATES.SET_EFFECT_CONFIG,
 					actions: assign<Context, SetEffectConfigEvent>({
 						effects: (ctx, event) => {
-							let effects = [...ctx.effects];
-							let index = effects.findIndex((e) => e.name === event.name);
-							effects[index].config = event.config;
+							let effects = { ...ctx.effects };
+							effects[event.name].config = event.config;
 							return effects;
 						},
 					}),
@@ -109,9 +108,8 @@ export const machine = createMachine<Context>({
 					target: STATES.LOADED,
 					actions: assign<Context, SetEffectConfigSuccessEvent>({
 						effects: (ctx, { effect }) => {
-							let effects = [...ctx.effects];
-							let index = effects.findIndex((e) => e.name === effect.name);
-							effects[index] = effect;
+							let effects = { ...ctx.effects };
+							effects[effect.name] = effect;
 							return effects;
 						},
 					}),

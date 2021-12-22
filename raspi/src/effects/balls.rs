@@ -1,30 +1,51 @@
 use educe::Educe;
+use palette::{IntoColor, Shade, WithAlpha};
 use rand::Rng;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-	color::HSV,
+	config::color::ColorGradient,
 	controller::Controller,
 	db,
-	effects::{config::color::ColorConfig, prelude::*},
+	effects::{config::color::ColorConfig, prelude::*, schema::Schema},
 };
 
 struct Ball {
 	pos:   f32,
 	speed: f32,
 	dir:   f32,
-	color: [u8; 3],
+	color: Rgba,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
+/*
+
+{
+	darken_factor: {
+		type: "float"
+		min: 0.0
+		max: 1.0
+	}
+	speed: {
+		type: "float"
+		min: 0.0
+		max: 100.0
+	}
+}
+
+ */
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe /*, Schema */)]
 #[educe(Default)]
 pub struct BallsConfig {
+	colors: ColorGradient,
+
+	// #[schema(min = 0.0, max = 1.0)]
 	#[educe(Default = 0.6)]
 	darken_factor: f32,
+	// #[schema(min = 0.0, max = 100.0)]
 	#[educe(Default = 0.8)]
 	speed:         f32,
-	color:         ColorConfig,
 }
 
 pub struct Balls {
@@ -38,7 +59,7 @@ pub struct Balls {
 impl Balls {
 	pub fn new(mut db: sled::Tree) -> Self {
 		let mut effect = Balls {
-			config: db::load_effect_config(&mut db),
+			config: db::load_config(&mut db),
 			db,
 
 			init: false,
@@ -51,10 +72,11 @@ impl Balls {
 	}
 
 	fn set_config(&mut self, config: BallsConfig) {
+		self.init = false;
 		self.config = config;
 	}
 
-	fn run(&mut self, ctrl: &mut Controller) {
+	fn run(&mut self, ctrl: &mut impl LedController) {
 		let mut state = ctrl.views_mut();
 
 		if !self.init {
@@ -65,7 +87,7 @@ impl Balls {
 						pos:   0.0,
 						speed: rand::thread_rng().gen_range(0.1..1.0),
 						dir:   1.0,
-						color: self.config.color.random().into(),
+						color: self.config.colors.random().into(),
 					})
 				}
 				self.balls.push(balls_for_strip);
@@ -76,11 +98,16 @@ impl Balls {
 
 		for strip in state.iter_mut() {
 			for led in strip.iter_mut() {
-				*led = darken_rgb(*led, self.config.darken_factor);
+				*led.darken(self.config.darken_factor);
 			}
 		}
 
 		for (i, section) in state.iter_mut().enumerate() {
+			let before: Vec<Rgba> = section.iter_mut().map(|v| v.clone()).collect();
+			for led in section.iter_mut() {
+				*led = Default::default();
+			}
+
 			let balls = self.balls.get_mut(i).unwrap();
 			let len = section.len() as f32;
 
@@ -90,17 +117,30 @@ impl Balls {
 					// debug!("fixing: {} len: {}", ball.pos, len);
 					if ball.pos < 0.0 {
 						ball.pos = -ball.pos;
-					} else if ball.pos > len {
+					} else if ball.pos >= len {
 						ball.pos = len - (ball.pos - len);
 					}
 
 					ball.dir = -ball.dir;
-					if rand::thread_rng().gen_range(0.0..1.0) >= 0.7 {
-						ball.color = self.config.color.random().into();
+					if rand::thread_rng().gen_range(0.0..1.0) >= 0.7f32 {
+						ball.color = self.config.colors.random().into();
 						ball.speed = rand::thread_rng().gen_range(0.1..1.0);
 					}
 				}
-				section[ball.pos.floor() as usize] = ball.color;
+
+				// section.set_aa_range([], ball.color);
+				section.set_aa(ball.pos, &ball.color);
+				// section[ball.pos.round().max(0.0).min(len - 1.0) as usize] = ball.color;
+			}
+
+			for (i, led) in section.iter_mut().enumerate() {
+				let before = &before[i];
+				*led = Rgb::new(
+					led.red.max(before.red),
+					led.green.max(before.green),
+					led.blue.max(before.blue),
+				)
+				.into();
 			}
 		}
 

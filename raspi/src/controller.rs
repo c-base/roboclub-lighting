@@ -6,60 +6,121 @@ use std::{
 	time::Duration,
 };
 
+use color_eyre::Result;
+use educe::Educe;
+use palette::{encoding, Blend, IntoColor, Mix, Srgba, WithAlpha};
 use rppal::{
 	gpio::{Gpio, InputPin, Level, Trigger},
 	spi::{Bus, Mode::Mode0, SlaveSelect, Spi},
 };
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, instrument, trace, warn};
 
-use crate::color::RGB;
+use crate::color::{Rgb, Rgba};
 
 const BLANK: [[u8; 3]; common::LEDS_PER_STRIP] = [[0; 3]; common::LEDS_PER_STRIP];
 
-const SPI_CLOCK: u32 = 30_000_000;
+const SPI_CLOCK: u32 = 50_000_000;
+
+/// probably unnecessary optimisation to save on allocations
+struct Buffers {
+	/// read buffer
+	read:  common::LedTransferBuffer,
+	/// write buffer
+	write: common::LedTransferBuffer,
+	/// empty write buffer to clear things
+	empty: common::LedTransferBuffer,
+}
+
+impl Buffers {
+	pub fn new() -> Self {
+		Buffers {
+			read:  [0; common::TRANSFER_BUFFER_SIZE],
+			write: [0; common::TRANSFER_BUFFER_SIZE],
+			empty: [0; common::TRANSFER_BUFFER_SIZE],
+		}
+	}
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
+#[educe(Default)]
+pub struct ControllerConfig {
+	#[educe(Default = 1.0)]
+	pub brightness: f32,
+	#[educe(Default = false)]
+	pub as_srgb:    bool,
+}
 
 pub struct Controller {
+	config: ControllerConfig,
+
 	spi:       Spi,
 	ready_pin: InputPin,
-	state:     common::LEDs,
-	buffers:   [[u8; common::TRANSFER_BUFFER_SIZE]; 2],
+	state:     [[Rgba; common::LEDS_PER_STRIP]; common::STRIPS],
+	buffers:   Buffers,
+}
+
+pub trait LedController {
+	fn write_state(&mut self);
+	fn state_mut(&mut self) -> &mut [[Rgba; common::LEDS_PER_STRIP]; common::STRIPS];
+	fn state_mut_flat(&mut self) -> &mut [Rgba; common::LEDS_PER_STRIP * common::STRIPS];
+	fn views_mut(&mut self) -> Views;
 }
 
 impl Controller {
-	pub fn new(ready_pin: u8, spi_bus: Bus) -> Result<Self, Box<dyn Error>> {
+	pub fn new(config: ControllerConfig, ready_pin: u8, spi_bus: Bus) -> Result<Self> {
 		let spi = Spi::new(spi_bus, SlaveSelect::Ss0, SPI_CLOCK, Mode0).unwrap();
 
 		let mut ready_pin = Gpio::new()?.get(ready_pin)?.into_input();
 		ready_pin.set_interrupt(Trigger::RisingEdge)?;
 
 		Ok(Controller {
+			config: ControllerConfig {
+				brightness: 1.0,
+				as_srgb:    false,
+			},
+
 			spi,
 			ready_pin,
-			state: [[[0; 3]; common::LEDS_PER_STRIP]; common::STRIPS],
-			buffers: [[0; common::TRANSFER_BUFFER_SIZE]; 2],
+			state: [[(); common::LEDS_PER_STRIP]; common::STRIPS]
+				.map(|strips| strips.map(|_| Rgba::default())),
+			buffers: Buffers::new(),
 		})
 	}
 
-	fn copy_into_state(&mut self, rgb: &[&[[u8; 3]]; common::STRIPS]) {
-		let strips = common::STRIPS;
+	#[instrument(skip(self))]
+	pub fn get_config(&self) -> ControllerConfig {
+		self.config.clone()
+	}
 
-		for strip in 0..strips {
-			let data_in = &rgb[strip];
-			let len = common::LEDS_PER_STRIP.max(data_in.len());
-			let data_slice = &data_in[..len];
-			let state = &mut self.state[strip][..len];
-			state.copy_from_slice(data_slice);
-			if len < common::LEDS_PER_STRIP {
-				let state = &mut self.state[strip][len..];
-				state.copy_from_slice(&BLANK[len..]);
-			}
+	#[instrument(skip(self))]
+	pub fn set_config(&mut self, config: ControllerConfig) -> ControllerConfig {
+		self.config = config.clone();
+		config
+	}
+
+	#[instrument(skip(self))]
+	fn encode_state(&mut self) {
+		for (i, c) in self.state.iter().flatten().enumerate() {
+			let (c, a) = c.split();
+			// from black to the colour
+			let c = Rgb::default().mix(&c.into_linear(), a * self.config.brightness);
+
+			let (r, g, b) = if self.config.as_srgb {
+				c.into_encoding::<encoding::Srgb>()
+					.into_format::<u8>()
+					.into_components()
+			} else {
+				c.into_format::<u8>().into_components()
+			};
+			self.buffers.write[i * 3 + 0] = r;
+			self.buffers.write[i * 3 + 1] = g;
+			self.buffers.write[i * 3 + 2] = b;
 		}
 	}
 
-	fn encode_state(&self) -> common::LedTransferBuffer {
-		unsafe { std::mem::transmute(self.state) }
-	}
-
+	#[instrument(skip(self))]
 	fn wait_for_interrupt(&mut self, timeout_ms: u64) -> Option<Level> {
 		self.ready_pin
 			.poll_interrupt(false, Some(Duration::from_millis(timeout_ms)))
@@ -89,8 +150,6 @@ impl Controller {
 	/// Writes the inner state to the strips
 	#[instrument(skip(self))]
 	fn write_state_internal(&mut self) -> Result<(), String> {
-		let buffer = self.encode_state();
-
 		let res = self.wait_for_interrupt(50);
 
 		// timeout, clear out potential unfinished transfer
@@ -99,11 +158,11 @@ impl Controller {
 
 			// writing the whole buffer is fine, because writing 0 just tells it to redraw when
 			// it accepts a new command and it clears overrun automatically
-			let mut read = self.buffers[0];
-			let write = self.buffers[1];
+			// let mut read = self.buffers[0];
+			// let write = self.buffers[2];
 
 			self.spi
-				.transfer(&mut read, &write)
+				.transfer(&mut self.buffers.read, &self.buffers.empty)
 				.map_err(|e| format!("sending to spi failed: {:?}", e))?;
 
 			self.wait_for_interrupt(5).ok_or(
@@ -119,9 +178,9 @@ impl Controller {
 
 			std::thread::sleep(Duration::from_micros(200));
 
-			let mut read = self.buffers[0];
+			self.encode_state();
 			self.spi
-				.transfer(&mut read, &buffer)
+				.transfer(&mut self.buffers.read, &self.buffers.write)
 				.map_err(|e| format!("sending to spi failed: {:?}", e))?;
 
 			std::thread::sleep(Duration::from_micros(200));
@@ -139,44 +198,30 @@ impl Controller {
 
 		Ok(())
 	}
+}
 
+impl LedController for Controller {
 	/// Writes the inner state to the strips
 	#[instrument(skip(self))]
-	pub fn write_state(&mut self) {
+	fn write_state(&mut self) {
 		match self.write_state_internal() {
 			Err(e) => println!("error sending state: {}", e),
 			_ => {}
 		};
 	}
 
-	pub fn write_rgb(&mut self, rgb: &[&[[u8; 3]]; common::STRIPS]) {
-		self.copy_into_state(rgb);
-		self.write_state();
-	}
-
-	pub fn write<'a, T, I>(&mut self, data: T)
-	where
-		T: IntoIterator<Item = I>,
-		I: Into<RGB>,
-	{
-		let vec = data
-			.into_iter()
-			.map(|c| c.into())
-			.map(|c| [c.r, c.g, c.b])
-			.collect::<Vec<_>>();
-
-		self.write_rgb(&[vec.as_slice(), vec.as_slice(), vec.as_slice()]);
-	}
-
-	pub fn state_mut(&mut self) -> &mut common::LEDs {
+	#[instrument(skip(self))]
+	fn state_mut(&mut self) -> &mut [[Rgba; common::LEDS_PER_STRIP]; common::STRIPS] {
 		&mut self.state
 	}
 
-	pub fn state_mut_flat(&mut self) -> &mut [[u8; 3]; common::LEDS_PER_STRIP * common::STRIPS] {
+	#[instrument(skip(self))]
+	fn state_mut_flat(&mut self) -> &mut [Rgba; common::LEDS_PER_STRIP * common::STRIPS] {
 		unsafe { std::mem::transmute(&mut self.state) }
 	}
 
-	pub fn views_mut(&mut self) -> Views {
+	#[instrument(skip(self))]
+	fn views_mut(&mut self) -> Views {
 		Views::new(&mut self.state)
 	}
 
@@ -200,7 +245,7 @@ pub struct Views<'a> {
 }
 
 impl<'a> Views<'a> {
-	pub fn new(leds: &'a mut [[[u8; 3]; common::LEDS_PER_STRIP]; common::STRIPS]) -> Self {
+	pub fn new(leds: &'a mut [[Rgba; common::LEDS_PER_STRIP]; common::STRIPS]) -> Self {
 		let [first, second, third] = leds;
 
 		let (section1, rest) = first.split_at_mut(149);
@@ -214,8 +259,8 @@ impl<'a> Views<'a> {
 		let (section8, _) = rest.split_at_mut(437 - 351);
 
 		let (section9, rest) = third.split_at_mut(107);
-		let (section10, rest) = rest.split_at_mut(154 - 107);
-		let (section11, rest) = rest.split_at_mut(208 - 154);
+		let (section10, rest) = rest.split_at_mut(153 - 107);
+		let (section11, rest) = rest.split_at_mut(208 - 153);
 		let (section12, rest) = rest.split_at_mut(308 - 208);
 		let (section13, rest) = rest.split_at_mut(350 - 308);
 		let (section14, rest) = rest.split_at_mut(442 - 350);
@@ -262,6 +307,7 @@ impl<'a> Index<usize> for Views<'a> {
 		&self.sections[index]
 	}
 }
+
 impl<'a> IndexMut<usize> for Views<'a> {
 	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
 		&mut self.sections[index]
@@ -269,12 +315,12 @@ impl<'a> IndexMut<usize> for Views<'a> {
 }
 
 pub struct Section<'a> {
-	slice:    &'a mut [[u8; 3]],
+	slice:    &'a mut [Rgba],
 	inverted: bool,
 }
 
 impl<'a> Section<'a> {
-	pub fn new(slice: &'a mut [[u8; 3]], inverted: bool) -> Self {
+	pub fn new(slice: &'a mut [Rgba], inverted: bool) -> Self {
 		Section { slice, inverted }
 	}
 
@@ -282,7 +328,7 @@ impl<'a> Section<'a> {
 		self.slice.len()
 	}
 
-	pub fn iter_mut(&mut self) -> Box<dyn Iterator<Item = &'_ mut [u8; 3]> + '_> {
+	pub fn iter_mut(&mut self) -> Box<dyn Iterator<Item = &'_ mut Rgba> + '_> {
 		let iter = self.slice.iter_mut();
 		if self.inverted {
 			Box::new(iter.rev())
@@ -292,8 +338,8 @@ impl<'a> Section<'a> {
 	}
 
 	pub fn range<T: RangeBounds<usize> + Debug>(&mut self, range: T) -> Section<'_> {
-		let start_bound = bound_to_num(range.start_bound(), true, self.slice.len() - 1);
-		let end_bound = bound_to_num(range.end_bound(), false, self.slice.len() - 1);
+		let start_bound = bound_to_num(range.start_bound(), true, 0, self.slice.len() - 1);
+		let end_bound = bound_to_num(range.end_bound(), false, 0, self.slice.len() - 1);
 
 		let max_idx = self.len();
 
@@ -308,27 +354,91 @@ impl<'a> Section<'a> {
 		let slice = self.slice.index_mut(range);
 		Section::new(slice, self.inverted)
 	}
+
+	pub fn set_aa_range<T: RangeBounds<f32>>(&mut self, range: T, val: &Rgba) {
+		let start_bound = bound_to_num(
+			range.start_bound(),
+			true,
+			0.0,
+			(self.slice.len() - 1) as f32,
+		);
+		let end_bound = bound_to_num(range.end_bound(), false, 0.0, (self.slice.len() - 1) as f32);
+
+		self.set_aa(start_bound, val);
+		self.set_aa(end_bound, val);
+
+		self.range((start_bound.ceil() as usize)..(end_bound.floor() as usize))
+			.slice
+			.fill_with(|| val.clone());
+	}
+
+	pub fn set_aa(&mut self, mut index: f32, val: &Rgba) {
+		let lower = index.floor().max(0.0).min((self.len() - 1) as f32) as usize;
+		let upper = index.ceil().max(0.0).min((self.len() - 1) as f32) as usize;
+
+		if lower == upper {
+			self[lower] = val.clone();
+			return;
+		}
+
+		// let lower_influence = index - lower as f32;
+		// let upper_influence = upper as f32 - index;
+
+		let lower_influence = upper as f32 - index;
+		let upper_influence = index - lower as f32;
+
+		// info!(
+		// 	"aa from {} to [{} ({}) .. {} ({})]",
+		// 	index, lower, lower_influence, upper, upper_influence
+		// );
+		//
+		// info!(
+		// 	"lerp lower: lerp_color({:?}, {:?}, {}) = {:?}",
+		// 	self[lower],
+		// 	val,
+		// 	lower_influence,
+		// 	lerp_color(self[lower], val, lower_influence)
+		// );
+
+		self[lower] = self[lower].mix(&val.into_linear(), lower_influence).into();
+		self[upper] = self[upper].mix(&val.into_linear(), upper_influence).into();
+		// self[lower] = lerp_color(self[lower], val, lower_influence);
+		// self[upper] = lerp_color(self[upper], val, upper_influence);
+	}
 }
 
-fn bound_to_num(bound: Bound<&usize>, start: bool, max: usize) -> usize {
+// fn lerp_color(from: [u8; 3], to: [u8; 3], factor: f32) -> [u8; 3] {
+// 	[
+// 		lerp(from[0] as _, to[0] as _, factor) as _,
+// 		lerp(from[1] as _, to[1] as _, factor) as _,
+// 		lerp(from[2] as _, to[2] as _, factor) as _,
+// 	]
+// }
+
+fn bound_to_num<T: Copy + std::ops::Add<Output = T> + From<u8>>(
+	bound: Bound<&T>,
+	start: bool,
+	min: T,
+	max: T,
+) -> T {
 	match bound {
 		Bound::Included(n) => {
 			if start {
 				*n
 			} else {
-				n + 1
+				*n + T::from(1)
 			}
 		}
 		Bound::Excluded(n) => {
 			if start {
-				n + 1
+				*n + T::from(1)
 			} else {
 				*n
 			}
 		}
 		Bound::Unbounded => {
 			if start {
-				0
+				min
 			} else {
 				max
 			}
@@ -337,7 +447,7 @@ fn bound_to_num(bound: Bound<&usize>, start: bool, max: usize) -> usize {
 }
 
 impl<'a> Index<usize> for Section<'a> {
-	type Output = [u8; 3];
+	type Output = Rgba;
 
 	fn index(&self, mut index: usize) -> &Self::Output {
 		assert!(index < self.slice.len());

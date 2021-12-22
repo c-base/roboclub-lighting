@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use anyhow::Context;
+use color_eyre::{eyre::WrapErr, Result};
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::{debug, error};
 
@@ -10,18 +10,18 @@ pub fn save_json<T: Serialize + Debug, K: AsRef<[u8]>>(
 	db: &mut sled::Tree,
 	key: K,
 	value: &T,
-) -> anyhow::Result<()> {
+) -> Result<()> {
 	let vec =
-		serde_json::to_vec(value).with_context(|| format!("failed serializing {:?}", value))?;
+		serde_json::to_vec(value).wrap_err_with(|| format!("failed serializing {:?}", value))?;
 	db.insert(key, vec)
-		.with_context(|| "failed to write config to db")?;
+		.wrap_err("failed to write config to db")?;
 	Ok(())
 }
 
 pub fn load_json<T: DeserializeOwned, K: AsRef<[u8]>>(
 	db: &sled::Tree,
 	key: K,
-) -> anyhow::Result<Option<T>> {
+) -> Result<Option<T>> {
 	let vec = match db.get(key)? {
 		Some(vec) => vec,
 		None => {
@@ -34,33 +34,29 @@ pub fn load_json<T: DeserializeOwned, K: AsRef<[u8]>>(
 	return Ok(value);
 }
 
-pub fn save_effect_config<T: Serialize + Debug>(
-	db: &mut sled::Tree,
-	config: &T,
-) -> anyhow::Result<()> {
+pub fn save_config<T: Serialize + Debug>(db: &mut sled::Tree, config: &T) -> Result<()> {
 	save_json(db, CONFIG_KEY, config)
 }
 
-pub fn load_effect_config<T: Serialize + DeserializeOwned + Debug + Default>(
-	db: &mut sled::Tree,
-) -> T {
+pub fn load_config<T: Serialize + DeserializeOwned + Debug + Default>(db: &mut sled::Tree) -> T {
 	match load_json(db, CONFIG_KEY) {
 		Ok(opt) => match opt {
 			Some(cfg) => cfg,
 			None => {
-				debug!("config not found in db, creating default");
+				debug!("config not found in db `{:?}`, creating default", db.name());
 				let cfg: T = Default::default();
-				save_effect_config::<T>(db, &cfg).ok();
+				save_config::<T>(db, &cfg).ok();
 				cfg
 			}
 		},
 		Err(err) => {
 			error!(
-				"creating default config: failed to deserialize config from db: {}",
+				"creating default config: failed to deserialize config from db `{:?}`: {}",
+				db.name(),
 				err
 			);
 			let cfg: T = Default::default();
-			save_effect_config::<T>(db, &cfg).ok();
+			save_config::<T>(db, &cfg).ok();
 			cfg
 		}
 	}

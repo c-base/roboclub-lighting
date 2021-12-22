@@ -1,4 +1,5 @@
 use educe::Educe;
+use palette::IntoColor;
 use rand::{thread_rng, Rng};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -10,8 +11,8 @@ use crate::{controller::Controller, db, effects::prelude::*};
 pub struct MeteorsConfig {
 	#[educe(Default = 10)]
 	meteor_size:        usize,
-	#[educe(Default = 16)]
-	meteor_trail_decay: u8,
+	#[educe(Default = 16.0)]
+	meteor_trail_decay: f32,
 	#[educe(Default = 40)]
 	speed_delay:        u64,
 	#[educe(Default = 4)]
@@ -29,7 +30,7 @@ pub struct Meteors {
 impl Meteors {
 	pub fn new(mut db: sled::Tree) -> Self {
 		let mut meteors = Meteors {
-			config: db::load_effect_config(&mut db),
+			config: db::load_config(&mut db),
 			db,
 			offset: 0,
 			meteors: vec![],
@@ -53,7 +54,7 @@ impl Meteors {
 		self.config = config;
 	}
 
-	fn run(&mut self, ctrl: &mut Controller) {
+	fn run(&mut self, ctrl: &mut impl LedController) {
 		let mut rand = thread_rng();
 
 		let leds = ctrl.state_mut_flat();
@@ -62,9 +63,9 @@ impl Meteors {
 		for j in 0..leds.len() {
 			fade_to_black_col(
 				&mut leds[j],
-				rand.gen_range(0..self.config.meteor_trail_decay),
-				rand.gen_range(0..self.config.meteor_trail_decay),
-				rand.gen_range(0..self.config.meteor_trail_decay),
+				rand.gen_range(0.0..self.config.meteor_trail_decay),
+				rand.gen_range(0.0..self.config.meteor_trail_decay),
+				rand.gen_range(0.0..self.config.meteor_trail_decay),
 			)
 		}
 
@@ -79,13 +80,10 @@ impl Meteors {
 			// draw meteor
 			for j in 0..self.config.meteor_size.min(*counter) {
 				if (*counter - j < leds.len()) && (*counter + 1 - j != 0) {
-					leds[*counter - j] = RGB::from(
-						HSV::new(
-							((self.offset as usize + j + *counter) % 256) as u8,
-							255,
-							255,
-						)
-						.to_rgb(),
+					leds[*counter - j] = Hsv::new(
+						((self.offset as f32 + j as f32 + *counter as f32) % 360.0),
+						1.0,
+						1.0,
 					)
 					.into();
 				}
