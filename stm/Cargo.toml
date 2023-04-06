@@ -6,7 +6,7 @@ edition = "2018"
 
 [patch.crates-io]
 #stm32l4xx-hal = { git = "https://github.com/stm32-rs/stm32l4xx-hal" }
-stm32f4xx-hal = { path = "../_pkg/stm32f4xx-hal" }
+#stm32f4xx-hal = { path = "../_pkg/stm32f4xx-hal" }
 
 [dependencies]
 common = { path = "../common" }
