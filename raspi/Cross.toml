@@ -1,15 +1,16 @@
-[target.armv7-unknown-linux-gnueabihf]
-image = "rustcross:pulseaudio-armhf"
+[build]
+default-target = "aarch64-unknown-linux-gnu"
 
-[target.armv7-unknown-linux-gnueabihf.env]
-volumes = [
-    "/home/hrmny/code/rust/roboclub-lighting",
-]
+#[build.env]
+#passthrough = [
+    #"RUSTFLAGS",
+#]
+#volumes = [
+    #"/home/hrmny/code/rust/roboclub-lighting",
+#]
 
-[build.env]
-passthrough = [
-    "RUSTFLAGS",
-]
-volumes = [
-    "/home/hrmny/code/rust/roboclub-lighting",
-]
+[target.aarch64-unknown-linux-gnu]
+dockerfile = "./Dockerfile"
+#image = "ahuszagh/aarch64-cross:aarch64-unknown-linux-gnu"
+#pre-build = ["dpkg --add-architecture arm64 && apt-get update && apt-get install --assume-yes libpipewire-0.3:arm64"]
+

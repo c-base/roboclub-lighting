@@ -58,6 +58,12 @@ impl From<PRgba> for Rgba {
 	}
 }
 
+impl From<PHsv> for Rgba {
+	fn from(c: PHsv) -> Self {
+		Rgba(c.into_color())
+	}
+}
+
 impl From<Hsv> for Rgba {
 	fn from(c: Hsv) -> Self {
 		Rgba(c.0.into_color())

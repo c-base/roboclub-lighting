@@ -31,6 +31,7 @@ mod effects;
 mod http;
 mod jsonrpc;
 mod noise;
+// mod pipewire;
 pub mod runner;
 
 pub const APP_NAME: &'static str = "roboclub-led-controller";
@@ -52,7 +53,7 @@ fn install_tracing() {
 }
 
 fn main() -> Result<()> {
-	color_backtrace::install();
+	// color_backtrace::install();
 	color_eyre::install()?;
 
 	install_tracing();

@@ -5,10 +5,31 @@ TARGET = "aarch64-unknown-linux-gnu"
 #PKG_CONFIG_PATH = "/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot/usr/lib"
 #PKG_CONFIG_SYSROOT_DIR = "./sysroot"
 #PKG_CONFIG_PATH = "/usr/arm-linux-gnueabihf/lib;/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot;/home/hrmny/code/rust/roboclub-lighting/raspi/sysroot/pulseaudio"
+
+#PKG_CONFIG_ALLOW_CROSS = "1"
+PKG_CONFIG_PATH = "/Users/hrmny/code/rust/roboclub-lighting/raspi/sysroot/usr/lib/aarch64-linux-gnu/pkgconfig"
+#PKG_CONIFG_PATH = "/Users/hrmny/code/rust/roboclub-lighting/raspi/sysroot/usr/lib/aarch64-linux-gnu/pkgconfig"
+PKG_CONFIG_SYSROOT_DIR = "/Users/hrmny/code/rust/roboclub-lighting/raspi/sysroot"
+#PKG_CONFIG_SYSROOT_DIR = "C:\\Users\\harmony\\Code\\Rust\\roboclub\\raspi\\sysroot"
+#PKG_CONIFG_PATH = "C:\\Users\\harmony\\Code\\Rust\\roboclub\\raspi\\sysroot\\usr\\lib\\aarch64-linux-gnu\\pkgconfig"
+#PKG_CONIFG_PATH = "/usr/lib/aarch64-linux-gnu/pkgconfig"
+
+#PKG_CONFIG_ALLOW_CROSS = "1"
+#LIBSPA_0.2_NO_PKG_CONFIG = "1"
+#LIBPIPEWIRE_0.3_NO_PKG_CONFIG = "1"
+
 RPI_HOST = "roboblast.cbrp3.c-base.org"
 #RPI_HOST = "10.10.0.192"
 RPI_USER = "ubuntu"
 RPI_PASS = "roboclub"
+
+[tasks.env]
+command = "printenv"
+args = ["PKG_CONIFG_PATH"]
+
+[tasks.pkg-config]
+command = "pkg-config"
+args = ["--libs", "--cflags", "libspa-0.2"]
 
 [tasks.build]
 command = "cargo"

@@ -41,7 +41,7 @@ pub struct BallsConfig {
 	colors: ColorGradient,
 
 	// #[schema(min = 0.0, max = 1.0)]
-	#[educe(Default = 0.6)]
+	#[educe(Default = 0.1)]
 	darken_factor: f32,
 	// #[schema(min = 0.0, max = 100.0)]
 	#[educe(Default = 0.8)]
@@ -98,7 +98,7 @@ impl Balls {
 
 		for strip in state.iter_mut() {
 			for led in strip.iter_mut() {
-				*led.darken(self.config.darken_factor);
+				*led = led.darken(self.config.darken_factor).into();
 			}
 		}
 

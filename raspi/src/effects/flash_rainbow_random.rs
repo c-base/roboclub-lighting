@@ -99,7 +99,7 @@ impl FlashRainbowRandom {
 
 		options.shuffle(&mut thread_rng());
 		for set_on in options.into_iter().take(self.config.segments_on as usize) {
-			for mut slices in slices.get_mut(set_on) {
+			if let Some(slices) = slices.get_mut(set_on) {
 				for slice in slices.iter_mut() {
 					for led in slice.iter_mut() {
 						*led = color.clone().into();

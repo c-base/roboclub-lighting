@@ -109,6 +109,10 @@ impl ColorGradient {
 		let factor = rand.gen::<f32>();
 		self.from.value.mix(&self.to.value, factor).into()
 	}
+
+	pub fn lerp(&self, factor: f32) -> Hsv {
+		self.from.value.mix(&self.to.value, factor).into()
+	}
 }
 
 impl Default for ColorGradient {
