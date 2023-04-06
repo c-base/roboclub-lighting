@@ -15,14 +15,14 @@ bare-metal = "1"
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 
-defmt = "0.2"
-defmt-rtt = "0.2"
+defmt = "0.3.4"
+defmt-rtt = "0.4.0"
 #rtt-target = { version = "0.3.1", features = ["cortex-m"] }
 #panic-rtt-target = { version = "0.1.2", features = ["cortex-m"] }
-panic-probe = { version = "0.2", features = ["print-defmt"] }
+panic-probe = { version = "0.3.1", features = ["print-defmt"] }
 
 embedded-hal = "0.2.3"
-stm32f4xx-hal = { version = "0.10.0", features = ["stm32f411", "rt"] }
+stm32f4xx-hal = { version = "0.15.0", features = ["stm32f411", "rt"] }
 
 #heapless = "0.5.6"
 nb = "1.0.0"

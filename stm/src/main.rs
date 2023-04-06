@@ -20,7 +20,7 @@ use ehal::spi::MODE_0;
 use embedded_hal as ehal;
 use hal::{
 	dma::{StreamsTuple, Transfer},
-	gpio::{gpioa, Floating, Input, Output, PushPull},
+	gpio::{gpioa, Input, Output, PushPull},
 	pac,
 	prelude::*,
 	spi::Spi,
@@ -31,8 +31,10 @@ use rt::{exception, ExceptionFrame};
 use stm32f4xx_hal as hal;
 use stm32f4xx_hal::{
 	dma::{config::DmaConfig, StreamX},
-	spi::TransferModeNormal,
+	rcc::Clocks,
+	spi::{Slave, TransferModeNormal},
 };
+use stm32f4xx_hal::serial::Serial;
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
@@ -41,14 +43,14 @@ fn main() -> ! {
 	let rcc = dp.RCC.constrain();
 
 	// TRY the other clock configuration
-	let _clocks = rcc
+	let clocks = rcc
 		.cfgr
-		.use_hse(25.mhz())
+		.use_hse(25.MHz())
 		.require_pll48clk()
-		.sysclk(100.mhz())
-		.hclk(100.mhz())
-		.pclk1(50.mhz())
-		.pclk2(100.mhz())
+		.sysclk(100.MHz())
+		.hclk(100.MHz())
+		.pclk1(50.MHz())
+		.pclk2(100.MHz())
 		.freeze();
 
 	let gpioa = dp.GPIOA.split();
@@ -58,6 +60,7 @@ fn main() -> ! {
 	defmt::info!("init");
 	let (spi, ready_pin) = LEDController::<()>::configure_hardware(
 		gpioa.pa0, gpioa.pa1, gpioa.pa2, gpioa.pa4, gpioa.pa5, gpioa.pa6, gpioa.pa7, dp.SPI1,
+		&clocks,
 	);
 
 	let buf = singleton!(: [u8; common::TRANSFER_BUFFER_SIZE] = [0; common::TRANSFER_BUFFER_SIZE])
@@ -79,7 +82,7 @@ const P2: (u32, u32) = create_pin_bits(2);
 
 struct LEDController<SpiPins> {
 	state:      common::LEDs,
-	spi:        Spi<SPI1, SpiPins, TransferModeNormal>,
+	spi:        Spi<SPI1, SpiPins, TransferModeNormal, u8, Slave>,
 	dma_stream: StreamX<DMA2, 0>,
 	ready_pin:  gpioa::PA4<Output<PushPull>>,
 	buffer:     &'static mut [u8; common::TRANSFER_BUFFER_SIZE],
@@ -87,7 +90,7 @@ struct LEDController<SpiPins> {
 
 impl<SpiPins> LEDController<SpiPins> {
 	pub fn new(
-		spi: Spi<SPI1, SpiPins, TransferModeNormal>,
+		spi: Spi<SPI1, SpiPins, TransferModeNormal, u8, Slave>,
 		dma_stream: StreamX<DMA2, 0>,
 		ready_pin: gpioa::PA4<Output<PushPull>>,
 		buffer: &'static mut [u8; common::TRANSFER_BUFFER_SIZE],
@@ -106,23 +109,22 @@ impl<SpiPins> LEDController<SpiPins> {
 	}
 
 	pub fn configure_hardware(
-		pa0: gpioa::PA0<Input<Floating>>,
-		pa1: gpioa::PA1<Input<Floating>>,
-		pa2: gpioa::PA2<Input<Floating>>,
-		pa4: gpioa::PA4<Input<Floating>>,
-		pa5: gpioa::PA5<Input<Floating>>,
-		pa6: gpioa::PA6<Input<Floating>>,
-		pa7: gpioa::PA7<Input<Floating>>,
+		pa0: gpioa::PA0<Input>,
+		pa1: gpioa::PA1<Input>,
+		pa2: gpioa::PA2<Input>,
+		pa4: gpioa::PA4<Input>,
+		pa5: gpioa::PA5<Input>,
+		pa6: gpioa::PA6<Input>,
+		pa7: gpioa::PA7<Input>,
 		spi: SPI1,
+		clocks: &Clocks,
 	) -> (
 		Spi<
 			SPI1,
-			(
-				gpioa::PA5<Input<Floating>>,
-				gpioa::PA6<Input<Floating>>,
-				gpioa::PA7<Input<Floating>>,
-			),
+			(gpioa::PA5<Input>, gpioa::PA6<Input>, gpioa::PA7<Input>),
 			TransferModeNormal,
+			u8,
+			Slave,
 		>,
 		gpioa::PA4<Output<PushPull>>,
 	) {
@@ -130,7 +132,7 @@ impl<SpiPins> LEDController<SpiPins> {
 		pa1.into_push_pull_output();
 		pa2.into_push_pull_output();
 
-		let spi = Spi::new_slave(spi, (pa5, pa6, pa7), MODE_0);
+		let spi = Spi::new_slave(spi, (pa5, pa6, pa7), MODE_0, 50.kHz(), clocks);
 		let ready_pin = pa4.into_push_pull_output();
 
 		(spi, ready_pin)
