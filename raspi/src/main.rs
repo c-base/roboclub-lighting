@@ -11,9 +11,8 @@ use std::{
 	time::Duration,
 };
 
-use color_eyre::{eyre::WrapErr, Result};
+use eyre::{Result, WrapErr};
 // use jsonrpc_tcp_server::{jsonrpc_core::IoHandler, ServerBuilder};
-use rppal::spi::Bus;
 use tracing::info;
 use tracing_subscriber::{util::SubscriberInitExt, FmtSubscriber};
 
@@ -69,13 +68,11 @@ fn main() -> Result<()> {
 	// #[instrument]
 	// async fn start() -> Result<(), Box<dyn Error>> {
 
-	const GPIO_READY: u8 = 0;
-
 	let mut ctrl_db = db
 		.open_tree("controller")
 		.expect("should be able to open a tree");
 	let ctrl_config = load_config(&mut ctrl_db);
-	let mut controller = Controller::new(ctrl_config, GPIO_READY, Bus::Spi0)?;
+	let mut controller = Controller::new(ctrl_config)?;
 	drop(ctrl_db);
 
 	// let mut frames = audio::get_frames().unwrap();
@@ -151,10 +148,10 @@ fn main() -> Result<()> {
 	// })?;
 
 	let runner = {
-		let mut effect_map: HashMap<String, Box<dyn effects::Effect>> = HashMap::new();
+		let mut effect_map: HashMap<String, Box<dyn Effect>> = HashMap::new();
 
 		fn add_effect<E: Effect + 'static, T: FnOnce(sled::Tree) -> E>(
-			map: &mut HashMap<String, Box<dyn effects::Effect>>,
+			map: &mut HashMap<String, Box<dyn Effect>>,
 			db: &mut sled::Db,
 			name: &str,
 			init: T,

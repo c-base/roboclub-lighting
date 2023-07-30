@@ -2,12 +2,14 @@ use educe::Educe;
 use palette::Saturate;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{config::color::Color, controller::Controller, db, effects::prelude::*, noise};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
 #[educe(Default)]
 pub struct RandomNoiseConfig {
+	#[schema(inline)]
 	color: Color,
 
 	#[educe(Default = 0.03)]

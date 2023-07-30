@@ -7,54 +7,42 @@ edition = "2018"
 [profile.release.package.robolab]
 debug = true
 
-#[workspace]
-#members = ["stm"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[patch.crates-io]
+serial-ws2812 = { path = "../_pkg/serial-ws2812" }
 
 [dependencies]
-common = { path = "../common" }
+serial-ws2812 = { version = "0.0.1", features = ["tokio"] }
 
-rand = "0.8"
-educe = "0.4"
-
-#color-backtrace = "0.5"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-futures = "0.2"
-
-serde = "1"
-
-schemars = "0.8"
-
-sled = "0.34"
-
-eyre = "0.6.8"
+axum = "0.6.19"
+bytemuck = { version = "1.13.1", features = ["min_const_generics"] }
 color-eyre = "0.6.2"
-
-#jsonrpc-tcp-server = "17.0.0"
-#mio = "0.7.10"
-
+educe = "0.4"
+eyre = "0.6.8"
 jsonrpc-core = "18"
-jsonrpc-ws-server = "18"
-jsonrpc-tcp-server = "18"
 jsonrpc-pubsub = "18"
-
+jsonrpc-tcp-server = "18"
+jsonrpc-ws-server = "18"
+rand = "0.8"
 rocket = "0.4"
-rocket_cors = "0.5"
 rocket_contrib = "0.4"
+rocket_cors = "0.5"
+schemars = "0.8"
+serde = "1"
+sled = "0.34"
+tokio = { version = "1.29.1", features = ["full"] }
+tracing = "0.1"
+tracing-futures = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+utoipa = { version = "3.4.3", features = ["axum_extras"] }
+validator = { version = "0.16.1", features = ["derive"] }
 
 [dependencies.palette]
-version = "0.6"
 features = ["random", "serializing"]
+version = "0.6"
 
 [dependencies.serde_json]
-version = "1"
 features = ["preserve_order", "float_roundtrip"]
-
-[dependencies.rppal]
-version = "0.14.0"
-features = ["hal"]
+version = "1"
 
 [dependencies.effect-derive]
 path = "./effect-derive"

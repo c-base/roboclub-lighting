@@ -1,0 +1,3 @@
+[submodule "_pkg/serial-ws2812"]
+	path = _pkg/serial-ws2812
+	url = git@github.com:ForsakenHarmony/serial-ws2812.git

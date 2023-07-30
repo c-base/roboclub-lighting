@@ -38,40 +38,65 @@ args = ["build", "-p", "robolab", "--target", "${TARGET}", "--release"]
 
 [tasks.copy-bin]
 command = "sshpass"
-args = ["-p", "${RPI_PASS}", "rsync", "-avzz", "--info=progress2", "./target/${TARGET}/${MODE}/${CARGO_MAKE_PROJECT_NAME}", "${RPI_USER}@${RPI_HOST}:/home/${RPI_USER}/leds/"]
-dependencies = [
-    "build"
+args = [
+  "-p",
+  "${RPI_PASS}",
+  "rsync",
+  "-avzz",
+  "--info=progress2",
+  "./target/${TARGET}/${MODE}/${CARGO_MAKE_PROJECT_NAME}",
+  "${RPI_USER}@${RPI_HOST}:/home/${RPI_USER}/leds/",
 ]
+dependencies = ["build"]
 
 [tasks.copy-public]
 command = "sshpass"
-args = ["-p", "${RPI_PASS}", "rsync", "-avzz", "--info=progress2", "../frontend/dist/", "${RPI_USER}@${RPI_HOST}:/home/ubuntu/leds/public"]
+args = [
+  "-p",
+  "${RPI_PASS}",
+  "rsync",
+  "-avzz",
+  "--info=progress2",
+  "../frontend/dist/",
+  "${RPI_USER}@${RPI_HOST}:/home/ubuntu/leds/public",
+]
 
 [tasks.copy]
-dependencies = [
-    "copy-bin",
-    "copy-public"
-]
+dependencies = ["copy-bin", "copy-public"]
 
 [tasks.remote-run]
 command = "sshpass"
-args = ["-p", "${RPI_PASS}", "ssh", "-t", "${RPI_USER}@${RPI_HOST}", "cd", "/home/${RPI_USER}/leds", ";", "RUST_BACKTRACE=full", "RUST_LOG=debug", "/home/${RPI_USER}/leds/robolab", "/dev/spidev3.0"]
-dependencies = [
-    "copy"
+args = [
+  "-p",
+  "${RPI_PASS}",
+  "ssh",
+  "-t",
+  "${RPI_USER}@${RPI_HOST}",
+  "cd",
+  "/home/${RPI_USER}/leds",
+  ";",
+  "RUST_BACKTRACE=full",
+  "RUST_LOG=debug",
+  "/home/${RPI_USER}/leds/robolab",
+  "/dev/spidev3.0",
 ]
+dependencies = ["copy"]
 
 [tasks.remote-restart]
 command = "sshpass"
-args = ["-p", "${RPI_PASS}", "ssh", "-t", "${RPI_USER}@${RPI_HOST}", "systemctl --user restart leds"]
-dependencies = [
-    "copy"
+args = [
+  "-p",
+  "${RPI_PASS}",
+  "ssh",
+  "-t",
+  "${RPI_USER}@${RPI_HOST}",
+  "systemctl --user restart leds",
 ]
+dependencies = ["copy"]
 
 [tasks.check]
 command = "cargo"
 args = ["check"]
 
 [tasks.default]
-dependencies = [
-    "build"
-]
+dependencies = ["build"]

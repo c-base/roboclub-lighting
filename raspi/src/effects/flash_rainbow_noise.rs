@@ -1,6 +1,7 @@
 use educe::Educe;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{
 	config::color::ColorGradient,
@@ -10,9 +11,10 @@ use crate::{
 	noise,
 };
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
 #[educe(Default)]
 pub struct FlashRainbowNoiseConfig {
+	#[schema(inline)]
 	colors: ColorGradient,
 
 	#[educe(Default = 0.15)]

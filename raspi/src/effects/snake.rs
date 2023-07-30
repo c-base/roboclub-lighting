@@ -3,12 +3,14 @@ use std::f32::consts::PI;
 use educe::Educe;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{config::color::ColorGradient, controller::Controller, db, effects::prelude::*};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
 #[educe(Default)]
 pub struct SnakeConfig {
+	#[schema(inline)]
 	colors: ColorGradient,
 
 	#[educe(Default = 0.25)]

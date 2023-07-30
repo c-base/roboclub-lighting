@@ -9,7 +9,7 @@ pub use crate::{
 	effects::Effect,
 };
 
-pub const NUM_LEDS: usize = common::LEDS_PER_STRIP;
+pub const NUM_LEDS: usize = crate::controller::LEDS_PER_STRIP;
 
 pub fn sleep_ms(ms: u64) {
 	std::thread::sleep(Duration::from_millis(ms));

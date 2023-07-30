@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use color_eyre::Result;
+use eyre::Result;
 use schemars::{schema::RootSchema, schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 
@@ -81,13 +81,10 @@ macro_rules! effect {
 			fn schema(&self) -> schemars::schema::RootSchema {
 				schemars::schema_for!($config)
 			}
-			fn config(&self) -> color_eyre::Result<serde_json::Value> {
+			fn config(&self) -> eyre::Result<serde_json::Value> {
 				Ok(serde_json::to_value(&self.config)?)
 			}
-			fn set_config(
-				&mut self,
-				value: serde_json::Value,
-			) -> color_eyre::Result<serde_json::Value> {
+			fn set_config(&mut self, value: serde_json::Value) -> eyre::Result<serde_json::Value> {
 				let config: $config = serde_json::from_value(value)?;
 				$struct::set_config(self, config);
 				crate::db::save_config(&mut self.db, &self.config)?;

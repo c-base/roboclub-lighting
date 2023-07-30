@@ -1,21 +1,36 @@
+// https://www.typescriptlang.org/tsconfig
 {
 	"compileOnSave": false,
 	"compilerOptions": {
-		"jsx": "preserve",
-		"jsxFactory": "preact.h",
-		"jsxFragmentFactory": "preact.Fragment",
+		"target": "ES2020",
+		"module": "ESNext",
+		"lib": ["ES2020", "DOM", "DOM.Iterable"],
+		"skipLibCheck": true,
+
+		/* Bundler mode */
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"noEmit": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "preact",
+
+		/* Linting */
+		//	"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true,
+
 		"allowJs": true,
 		"checkJs": true,
-		// "strict": true,
-		"noEmit": true,
-		"moduleResolution": "node",
-		"target": "ESNext",
-		"module": "esnext",
-		"resolveJsonModule": true,
+
 		"allowSyntheticDefaultImports": true,
 		"downlevelIteration": true
 	},
 	"typeAcquisition": {
 		"enable": true
-	}
+	},
+	"include": ["src"],
+	"references": [{ "path": "./tsconfig.node.json" }]
 }

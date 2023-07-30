@@ -8,6 +8,7 @@ use palette::{IntoColor, Mix, Shade};
 use rand::{thread_rng, Rng};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{
 	config::color::ColorGradient,
@@ -16,9 +17,10 @@ use crate::{
 	effects::{config::color::ColorConfig, prelude::*},
 };
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
 #[educe(Default)]
 pub struct ExplosionsConfig {
+	#[schema(inline)]
 	colors: ColorGradient,
 
 	#[educe(Default = 250)]

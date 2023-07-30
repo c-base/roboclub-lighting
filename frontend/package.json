@@ -1,40 +1,42 @@
 {
-  "name": "frontend",
-  "version": "1.0.0",
-  "main": "index.js",
-  "private": true,
-  "license": "MIT",
-  "scripts": {
-    "start": "wmr start -p 8081 --compress false",
-    "build": "wmr build --prerender",
-    "serve": "wmr serve",
-    "prettier": "prettier --write ./public/**/*.{ts,tsx,css}"
-  },
-  "prettier": {
-    "useTabs": true,
-    "endOfLine": "lf",
-    "semi": true
-  },
-  "eslintConfig": {
-    "extends": "preact"
-  },
-  "alias": {
-    "react": "preact/compat",
-    "react-dom": "preact/compat"
-  },
-  "devDependencies": {
-    "@types/json-schema": "^7.0.9",
-    "prettier": "^2.5.1",
-    "wmr": "^3.7.2"
-  },
-  "dependencies": {
-    "@jaames/iro": "^5.5.2",
-    "@xstate/fsm": "^1.6.2",
-    "clsx": "^1.1.1",
-    "dset": "^3.1.1",
-    "goober": "^2.1.1",
-    "preact": "^10.6.4",
-    "preact-feather": "^4.2.1",
-    "preact-iso": "^2.3.0"
-  }
+	"name": "frontend",
+	"version": "0.0.0",
+	"private": true,
+	"license": "MIT",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc && vite build --outDir ../raspi/public",
+		"preview": "vite preview",
+		"prettier": "prettier --write ."
+	},
+	"prettier": {
+		"useTabs": true,
+		"endOfLine": "lf",
+		"semi": true
+	},
+	"eslintConfig": {
+		"extends": "preact"
+	},
+	"alias": {
+		"react": "preact/compat",
+		"react-dom": "preact/compat"
+	},
+	"devDependencies": {
+		"@preact/preset-vite": "^2.5.0",
+		"@types/json-schema": "^7.0.9",
+		"prettier": "^2.5.1",
+		"typescript": "^5.1.6",
+		"vite": "^4.4.5"
+	},
+	"dependencies": {
+		"@jaames/iro": "^5.5.2",
+		"@xstate/fsm": "^1.6.2",
+		"clsx": "^1.1.1",
+		"dset": "^3.1.1",
+		"goober": "^2.1.1",
+		"preact": "^10.6.4",
+		"preact-feather": "^4.2.1",
+		"preact-iso": "^2.3.0"
+	}
 }

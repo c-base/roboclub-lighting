@@ -3,6 +3,7 @@ use palette::{IntoColor, Shade, WithAlpha};
 use rand::Rng;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{
 	config::color::ColorGradient,
@@ -18,34 +19,19 @@ struct Ball {
 	color: Rgba,
 }
 
-/*
-
-{
-	darken_factor: {
-		type: "float"
-		min: 0.0
-		max: 1.0
-	}
-	speed: {
-		type: "float"
-		min: 0.0
-		max: 100.0
-	}
-}
-
- */
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe /*, Schema */)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
 #[educe(Default)]
 pub struct BallsConfig {
+	#[schema(inline)]
 	colors: ColorGradient,
 
-	// #[schema(min = 0.0, max = 1.0)]
+	#[schema(minimum = 0.0, maximum = 1.0)]
 	#[educe(Default = 0.1)]
 	darken_factor: f32,
-	// #[schema(min = 0.0, max = 100.0)]
+
+	#[schema(minimum = 0.0, maximum = 100.0)]
 	#[educe(Default = 0.8)]
-	speed:         f32,
+	speed: f32,
 }
 
 pub struct Balls {

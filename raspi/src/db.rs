@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use color_eyre::{eyre::WrapErr, Result};
+use eyre::{Result, WrapErr};
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::{debug, error};
 

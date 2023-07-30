@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
-use color_eyre::{
-	eyre::{bail, eyre},
-	Result,
-};
 use educe::Educe;
+use eyre::{bail, eyre, Result};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

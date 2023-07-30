@@ -6,42 +6,22 @@ use std::{
 	time::Duration,
 };
 
-use color_eyre::Result;
 use educe::Educe;
+use eyre::{eyre, Result};
 use palette::{encoding, Blend, IntoColor, Mix, Srgba, WithAlpha};
-use rppal::{
-	gpio::{Gpio, InputPin, Level, Trigger},
-	spi::{Bus, Mode::Mode0, SlaveSelect, Spi},
-};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serial_ws2812::{Config, SerialWs2812};
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::color::{Rgb, Rgba};
 
-const BLANK: [[u8; 3]; common::LEDS_PER_STRIP] = [[0; 3]; common::LEDS_PER_STRIP];
+pub const LEDS_PER_STRIP: usize = 480;
+pub const STRIPS: usize = 3;
+
+const BLANK: [[u8; 3]; LEDS_PER_STRIP] = [[0; 3]; LEDS_PER_STRIP];
 
 const SPI_CLOCK: u32 = 50_000_000;
-
-/// probably unnecessary optimisation to save on allocations
-struct Buffers {
-	/// read buffer
-	read:  common::LedTransferBuffer,
-	/// write buffer
-	write: common::LedTransferBuffer,
-	/// empty write buffer to clear things
-	empty: common::LedTransferBuffer,
-}
-
-impl Buffers {
-	pub fn new() -> Self {
-		Buffers {
-			read:  [0; common::TRANSFER_BUFFER_SIZE],
-			write: [0; common::TRANSFER_BUFFER_SIZE],
-			empty: [0; common::TRANSFER_BUFFER_SIZE],
-		}
-	}
-}
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
 #[educe(Default)]
@@ -55,25 +35,28 @@ pub struct ControllerConfig {
 pub struct Controller {
 	config: ControllerConfig,
 
-	spi:       Spi,
-	ready_pin: InputPin,
-	state:     [[Rgba; common::LEDS_PER_STRIP]; common::STRIPS],
-	buffers:   Buffers,
+	serial: SerialWs2812,
+
+	state:  [[Rgba; LEDS_PER_STRIP]; STRIPS],
+	buffer: [u8; 3 * LEDS_PER_STRIP * STRIPS],
 }
 
 pub trait LedController {
 	fn write_state(&mut self);
-	fn state_mut(&mut self) -> &mut [[Rgba; common::LEDS_PER_STRIP]; common::STRIPS];
-	fn state_mut_flat(&mut self) -> &mut [Rgba; common::LEDS_PER_STRIP * common::STRIPS];
+	fn state_mut(&mut self) -> &mut [[Rgba; LEDS_PER_STRIP]; STRIPS];
+	fn state_mut_flat(&mut self) -> &mut [Rgba; LEDS_PER_STRIP * STRIPS];
 	fn views_mut(&mut self) -> Views;
 }
 
 impl Controller {
-	pub fn new(config: ControllerConfig, ready_pin: u8, spi_bus: Bus) -> Result<Self> {
-		let spi = Spi::new(spi_bus, SlaveSelect::Ss0, SPI_CLOCK, Mode0).unwrap();
+	pub fn new(config: ControllerConfig) -> Result<Self> {
+		let mut serial = SerialWs2812::find(Config {
+			leds:   LEDS_PER_STRIP,
+			strips: STRIPS,
+		})?
+		.ok_or(eyre!("device not found"))?;
 
-		let mut ready_pin = Gpio::new()?.get(ready_pin)?.into_input();
-		ready_pin.set_interrupt(Trigger::RisingEdge)?;
+		serial.configure()?;
 
 		Ok(Controller {
 			config: ControllerConfig {
@@ -81,11 +64,10 @@ impl Controller {
 				as_srgb:    false,
 			},
 
-			spi,
-			ready_pin,
-			state: [[(); common::LEDS_PER_STRIP]; common::STRIPS]
-				.map(|strips| strips.map(|_| Rgba::default())),
-			buffers: Buffers::new(),
+			serial,
+
+			state: [[(); LEDS_PER_STRIP]; STRIPS].map(|strips| strips.map(|_| Rgba::default())),
+			buffer: [0u8; 3 * LEDS_PER_STRIP * STRIPS],
 		})
 	}
 
@@ -114,87 +96,47 @@ impl Controller {
 			} else {
 				c.into_format::<u8>().into_components()
 			};
-			self.buffers.write[i * 3 + 0] = r;
-			self.buffers.write[i * 3 + 1] = g;
-			self.buffers.write[i * 3 + 2] = b;
+
+			self.buffer[i * 3 + 0] = r;
+			self.buffer[i * 3 + 1] = g;
+			self.buffer[i * 3 + 2] = b;
 		}
 	}
 
-	#[instrument(skip(self))]
-	fn wait_for_interrupt(&mut self, timeout_ms: u64) -> Option<Level> {
-		self.ready_pin
-			.poll_interrupt(false, Some(Duration::from_millis(timeout_ms)))
-			.expect("should be able to poll interrupt")
-	}
-
-	#[instrument(skip(self))]
-	fn send_command(&mut self, command: u8) -> Result<(), String> {
-		let mut read = [0x0];
-
-		let res = self.spi.transfer(&mut read, &[command]);
-
-		// println!("received {:?}", read);
-
-		res.map_err(|e| format!("sending to spi failed: {:?}", e))
-			.and_then(|_| {
-				if read[0] == 1 {
-					return Ok(());
-				}
-				Err(format!(
-					"sending spi command failed, got {} instead of ack(1)",
-					read[0]
-				))
-			})
-	}
+	// #[instrument(skip(self))]
+	// fn wait_for_interrupt(&mut self, timeout_ms: u64) -> Option<Level> {
+	// 	self.ready_pin
+	// 		.poll_interrupt(false, Some(Duration::from_millis(timeout_ms)))
+	// 		.expect("should be able to poll interrupt")
+	// }
+	//
+	// #[instrument(skip(self))]
+	// fn send_command(&mut self, command: u8) -> Result<(), String> {
+	// 	let mut read = [0x0];
+	//
+	// 	let res = self.spi.transfer(&mut read, &[command]);
+	//
+	// 	// println!("received {:?}", read);
+	//
+	// 	res.map_err(|e| format!("sending to spi failed: {:?}", e))
+	// 		.and_then(|_| {
+	// 			if read[0] == 1 {
+	// 				return Ok(());
+	// 			}
+	// 			Err(format!(
+	// 				"sending spi command failed, got {} instead of ack(1)",
+	// 				read[0]
+	// 			))
+	// 		})
+	// }
 
 	/// Writes the inner state to the strips
 	#[instrument(skip(self))]
-	fn write_state_internal(&mut self) -> Result<(), String> {
-		let res = self.wait_for_interrupt(50);
+	fn write_state_internal(&mut self) -> Result<()> {
+		trace!("sending ws2812 buffer over serial");
+		self.encode_state();
 
-		// timeout, clear out potential unfinished transfer
-		if res.is_none() && self.ready_pin.is_low() {
-			warn!("waiting for interrupt timed out, clearing spi transfer");
-
-			// writing the whole buffer is fine, because writing 0 just tells it to redraw when
-			// it accepts a new command and it clears overrun automatically
-			// let mut read = self.buffers[0];
-			// let write = self.buffers[2];
-
-			self.spi
-				.transfer(&mut self.buffers.read, &self.buffers.empty)
-				.map_err(|e| format!("sending to spi failed: {:?}", e))?;
-
-			self.wait_for_interrupt(5).ok_or(
-				"!!!! spi still not ready after clear, stm might not be connected / on !!!!"
-					.to_string(),
-			)?;
-		}
-
-		if self.ready_pin.is_high() {
-			trace!("sending spi buffer");
-			// FIXME: stm never sends ack
-			let _ = self.send_command(common::messages::UPDATE_LEDS);
-
-			std::thread::sleep(Duration::from_micros(200));
-
-			self.encode_state();
-			self.spi
-				.transfer(&mut self.buffers.read, &self.buffers.write)
-				.map_err(|e| format!("sending to spi failed: {:?}", e))?;
-
-			std::thread::sleep(Duration::from_micros(200));
-
-			self.wait_for_interrupt(5)
-				.ok_or("waiting for interrupt failed trying to apply leds".to_string())?;
-
-			// FIXME: stm never sends ack
-			let _ = self.send_command(common::messages::APPLY_LEDS);
-
-			trace!("data sent");
-		} else {
-			trace!("could not send spi buffer, not ready");
-		}
+		self.serial.send_leds(&self.buffer)?;
 
 		Ok(())
 	}
@@ -205,18 +147,18 @@ impl LedController for Controller {
 	#[instrument(skip(self))]
 	fn write_state(&mut self) {
 		match self.write_state_internal() {
-			Err(e) => println!("error sending state: {}", e),
+			Err(e) => error!("error sending state: {:#}", e),
 			_ => {}
 		};
 	}
 
 	#[instrument(skip(self))]
-	fn state_mut(&mut self) -> &mut [[Rgba; common::LEDS_PER_STRIP]; common::STRIPS] {
+	fn state_mut(&mut self) -> &mut [[Rgba; LEDS_PER_STRIP]; STRIPS] {
 		&mut self.state
 	}
 
 	#[instrument(skip(self))]
-	fn state_mut_flat(&mut self) -> &mut [Rgba; common::LEDS_PER_STRIP * common::STRIPS] {
+	fn state_mut_flat(&mut self) -> &mut [Rgba; LEDS_PER_STRIP * STRIPS] {
 		unsafe { std::mem::transmute(&mut self.state) }
 	}
 
@@ -225,7 +167,7 @@ impl LedController for Controller {
 		Views::new(&mut self.state)
 	}
 
-	// pub fn one_strip_mut(&mut self) -> &mut [[u8; 3]; common::LEDS_PER_STRIP] {}
+	// pub fn one_strip_mut(&mut self) -> &mut [[u8; 3]; LEDS_PER_STRIP] {}
 
 	// pub fn named_views_mut<'a>(&mut self) -> &'a mut Views {
 	// 	self.state[0].split_at_mut()
@@ -245,7 +187,7 @@ pub struct Views<'a> {
 }
 
 impl<'a> Views<'a> {
-	pub fn new(leds: &'a mut [[Rgba; common::LEDS_PER_STRIP]; common::STRIPS]) -> Self {
+	pub fn new(leds: &'a mut [[Rgba; LEDS_PER_STRIP]; STRIPS]) -> Self {
 		let [first, second, third] = leds;
 
 		let (section1, rest) = first.split_at_mut(149);

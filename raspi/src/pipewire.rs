@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use eyre::Result;
 use pipewire as pw;
 use pw::{prelude::*, properties, spa};
 

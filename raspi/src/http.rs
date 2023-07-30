@@ -4,7 +4,7 @@ use std::{
 	sync::{Arc, Mutex},
 };
 
-use color_eyre::Result;
+use eyre::Result;
 use rocket::{
 	config::{Environment, LoggingLevel},
 	response::NamedFile,

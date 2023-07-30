@@ -3,7 +3,7 @@
 #BUILD := debug
 BUILD := release
 
-TARGET := aarch64-unknown-linux-gnu
+TARGET := aarch64-unknown-linux-musl
 
 BINARY_NAME := robolab
 
@@ -17,8 +17,8 @@ export PKG_CONFIG_PATH = /Users/hrmny/code/rust/roboclub-lighting/raspi/sysroot/
 export PKG_CONFIG_SYSROOT_DIR = /Users/hrmny/code/rust/roboclub-lighting/raspi/sysroot
 
 TARGET_HOST := roboblast.cbrp3.c-base.org
-TARGET_USER := ubuntu
-TARGET_PASS := roboclub
+TARGET_USER := alien
+TARGET_PASS := alien
 TARGET_DIR := /home/${TARGET_USER}/leds
 
 # ======================================
@@ -51,19 +51,20 @@ clean: ## clean artifacts
 
 .PHONY: copy-bin
 copy-bin: build ## copy the binary to the target device
-	sshpass -p ${TARGET_PASS} rsync -avzz --info=progress2 ./${BIN} ${TARGET_USER}@${TARGET_HOST}:${TARGET_DIR}
+	sshpass -p ${TARGET_PASS} rsync -avzz ./${BIN} ${TARGET_USER}@${TARGET_HOST}:${TARGET_DIR}
+	@# sshpass -p ${TARGET_PASS} rsync -avzz --info=progress2 ./${BIN} ${TARGET_USER}@${TARGET_HOST}:${TARGET_DIR}
 
 .PHONY: copy-public
 copy-public: ## copy the public dir to the target device
-	sshpass -p ${TARGET_PASS} rsync -avzz --info=progress2 ../frontend/dist/ ${TARGET_USER}@${TARGET_HOST}:${TARGET_DIR}/public
+	sshpass -p ${TARGET_PASS} rsync -avzz ../frontend/dist/ ${TARGET_USER}@${TARGET_HOST}:${TARGET_DIR}/public
+	@# sshpass -p ${TARGET_PASS} rsync -avzz --info=progress2 ../frontend/dist/ ${TARGET_USER}@${TARGET_HOST}:${TARGET_DIR}/public
 
 .PHONY: copy
 copy: copy-bin copy-public ## copy everything target device
-	sshpass -p ${TARGET_PASS} rsync -avzz --info=progress2 ../frontend/dist/ ${TARGET_USER}@${TARGET_HOST}:${TARGET_DIR}/public
 
 .PHONY: remote-run
 remote-run: copy ## copy and run on the target device and monitor logs
-	sshpass -p ${TARGET_PASS} ssh -t ${TARGET_USER}@${TARGET_HOST} cd ${TARGET_DIR}; RUST_BACKTRACE=full RUST_LOG=debug ${TARGET_DIR}/${BINARY_NAME} /dev/spidev3.0
+	@sshpass -p ${TARGET_PASS} ssh -t ${TARGET_USER}@${TARGET_HOST} cd ${TARGET_DIR}; RUST_BACKTRACE=full RUST_LOG=debug ${TARGET_DIR}/${BINARY_NAME} /dev/spidev3.0
 
 .PHONY: remote-restart
 remote-restart: copy ## copy and restart the service on the target device

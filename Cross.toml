@@ -2,6 +2,4 @@
 image = "rustcross:pulseaudio-armhf"
 
 [build.env]
-passthrough = [
-    "RUSTFLAGS",
-]
+passthrough = ["RUSTFLAGS"]

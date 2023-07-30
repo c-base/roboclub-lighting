@@ -10,6 +10,10 @@ use schemars::{
 	JsonSchema,
 };
 use serde::{Deserialize, Serialize};
+use utoipa::{
+	openapi::{KnownFormat, ObjectBuilder, RefOr, SchemaFormat, SchemaType},
+	ToSchema,
+};
 
 use crate::color::Hsv;
 
@@ -30,6 +34,43 @@ impl Default for Color {
 		Color {
 			value: Hsv::new(0.0, 0.3, 1.0),
 		}
+	}
+}
+
+impl<'a> ToSchema<'a> for Color {
+	fn schema() -> (&'a str, RefOr<utoipa::openapi::Schema>) {
+		(
+			"Color",
+			ObjectBuilder::new()
+				.property(
+					"hue",
+					ObjectBuilder::new()
+						.schema_type(SchemaType::Number)
+						.format(Some(SchemaFormat::KnownFormat(KnownFormat::Float)))
+						.minimum(Some(0.0))
+						.maximum(Some(360.0)),
+				)
+				.required("hue")
+				.property(
+					"saturation",
+					ObjectBuilder::new()
+						.schema_type(SchemaType::Number)
+						.format(Some(SchemaFormat::KnownFormat(KnownFormat::Float)))
+						.minimum(Some(0.0))
+						.maximum(Some(1.0)),
+				)
+				.required("saturation")
+				.property(
+					"value",
+					ObjectBuilder::new()
+						.schema_type(SchemaType::Number)
+						.format(Some(SchemaFormat::KnownFormat(KnownFormat::Float)))
+						.minimum(Some(0.0))
+						.maximum(Some(1.0)),
+				)
+				.required("value")
+				.into(),
+		)
 	}
 }
 
@@ -97,10 +138,13 @@ impl JsonSchema for Color {
 	}
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, ToSchema)]
 pub struct ColorGradient {
+	#[schema(inline)]
 	from: Color,
-	to:   Color,
+
+	#[schema(inline)]
+	to: Color,
 }
 
 impl ColorGradient {
@@ -128,7 +172,7 @@ impl Default for ColorGradient {
 	}
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, ToSchema)]
 #[serde(tag = "type")]
 pub enum MultiColor {
 	Single(Color),
@@ -136,7 +180,7 @@ pub enum MultiColor {
 	Gradient(ColorGradient),
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
 #[educe(Default)]
 pub struct ColorConfig {
 	#[educe(Default = 0.0)]
