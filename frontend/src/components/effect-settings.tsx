@@ -10,6 +10,7 @@ import { STATES } from "../state/state";
 import styles from "./effect-settings.module.css";
 import { prettyName } from "../util/pretty-names";
 import { ColorPicker, MultiColorPicker } from "./color-picker";
+import { JSX } from "preact";
 
 export function EffectSettings({
 	effectData,
@@ -105,7 +106,7 @@ function createFields(
 		if (typeof config[name] === "object") {
 			if (typeof propertySchema["$ref"] === "string") {
 				let ref = propertySchema["$ref"];
-				let definition = ref.substring("#/definitions/".length);
+				let definition = ref.substring("#/components/schemas/".length);
 
 				if (definition === "Color") {
 					return {
@@ -185,6 +186,21 @@ function readableValue(schema: JSONSchema7, value: any) {
 	}
 }
 
+function inputAttributes(schema: JSONSchema7): JSX.HTMLAttributes<HTMLInputElement> {
+	switch (schema.type) {
+		case "number":
+		case "integer":
+			return {
+				step: 0.01,
+				min: schema.minimum,
+				max: schema.maximum,
+			};
+
+		default:
+			return {};
+	}
+}
+
 function Setting({ field, onChange }: { field: Field; onChange: (value: any) => void }) {
 	let id = `input__${field.name}`;
 
@@ -199,6 +215,7 @@ function Setting({ field, onChange }: { field: Field; onChange: (value: any) => 
 
 	let inputType = getInputType(field.schema);
 	let value = readableValue(field.schema, field.value);
+	let attrs = inputAttributes(field.schema);
 
 	return (
 		<fieldset class={clsx({ error: field.schema === null })}>
@@ -209,6 +226,7 @@ function Setting({ field, onChange }: { field: Field; onChange: (value: any) => 
 				value={value}
 				checked={inputType === "checkbox" && value}
 				onChange={(e) => onChange(getValue(field.schema, e.currentTarget))}
+				{...attrs}
 			/>
 		</fieldset>
 	);

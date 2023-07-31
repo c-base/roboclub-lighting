@@ -1,23 +1,29 @@
 use educe::Educe;
 use palette::IntoColor;
 use rand::{thread_rng, Rng};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{controller::Controller, db, effects::prelude::*};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
 pub struct MeteorsConfig {
+	#[schema(minimum = 1, maximum = 100)]
 	#[educe(Default = 10)]
-	meteor_size:        usize,
+	meteor_size: usize,
+
+	#[schema(minimum = 0.00001, maximum = 100.0)]
 	#[educe(Default = 16.0)]
 	meteor_trail_decay: f32,
+
+	#[schema(minimum = 1, maximum = 100)]
 	#[educe(Default = 40)]
-	speed_delay:        u64,
+	speed_delay: u64,
+
+	#[schema(minimum = 1, maximum = 100)]
 	#[educe(Default = 4)]
-	meteor_count:       usize,
+	meteor_count: usize,
 }
 
 pub struct Meteors {

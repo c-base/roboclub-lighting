@@ -1,9 +1,8 @@
 use educe::Educe;
 use palette::{IntoColor, Shade, WithAlpha};
 use rand::Rng;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{openapi::RefOr, ToSchema};
 
 use crate::{
 	config::color::ColorGradient,
@@ -19,13 +18,13 @@ struct Ball {
 	color: Rgba,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
 pub struct BallsConfig {
-	#[schema(inline)]
+	// #[schema(inline)]
 	colors: ColorGradient,
 
-	#[schema(minimum = 0.0, maximum = 1.0)]
+	#[schema(minimum = 0.00001, maximum = 0.99999)]
 	#[educe(Default = 0.1)]
 	darken_factor: f32,
 

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use educe::Educe;
 use eyre::{bail, eyre, Result};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{debug, error};
@@ -85,7 +84,9 @@ impl EffectRunner {
 			.effects
 			.get_mut(&effect_name)
 			.ok_or(eyre!("no effect with the name {}", effect_name))?;
+
 		effect.set_config(config)?;
+
 		Ok(EffectData {
 			name:    effect_name,
 			schema:  effect.schema(),

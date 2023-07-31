@@ -4,11 +4,6 @@ use educe::Educe;
 use effect_derive::Schema;
 use palette::Mix;
 use rand::Rng;
-use schemars::{
-	gen::SchemaGenerator,
-	schema::{InstanceType, Schema, SchemaObject},
-	JsonSchema,
-};
 use serde::{Deserialize, Serialize};
 use utoipa::{
 	openapi::{KnownFormat, ObjectBuilder, RefOr, SchemaFormat, SchemaType},
@@ -74,71 +69,7 @@ impl<'a> ToSchema<'a> for Color {
 	}
 }
 
-impl JsonSchema for Color {
-	fn schema_name() -> String {
-		"Color".to_string()
-	}
-
-	fn json_schema(gen: &mut SchemaGenerator) -> Schema {
-		let mut schema_object = SchemaObject {
-			instance_type: Some(InstanceType::Object.into()),
-			..Default::default()
-		};
-		let object = schema_object.object();
-
-		object.properties.insert(
-			"hue".into(),
-			Schema::Object({
-				let mut schema_object = SchemaObject {
-					instance_type: Some(InstanceType::Number.into()),
-					..Default::default()
-				};
-				let num = schema_object.number();
-				num.minimum = Some(0.0);
-				num.maximum = Some(360.0);
-
-				schema_object
-			}),
-		);
-		object.required.insert("hue".into());
-
-		object.properties.insert(
-			"saturation".into(),
-			Schema::Object({
-				let mut schema_object = SchemaObject {
-					instance_type: Some(InstanceType::Number.into()),
-					..Default::default()
-				};
-				let num = schema_object.number();
-				num.minimum = Some(0.0);
-				num.maximum = Some(1.0);
-
-				schema_object
-			}),
-		);
-		object.required.insert("saturation".into());
-
-		object.properties.insert(
-			"value".into(),
-			Schema::Object({
-				let mut schema_object = SchemaObject {
-					instance_type: Some(InstanceType::Number.into()),
-					..Default::default()
-				};
-				let num = schema_object.number();
-				num.minimum = Some(0.0);
-				num.maximum = Some(1.0);
-
-				schema_object
-			}),
-		);
-		object.required.insert("value".into());
-
-		Schema::Object(schema_object)
-	}
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, ToSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ColorGradient {
 	#[schema(inline)]
 	from: Color,
@@ -172,7 +103,7 @@ impl Default for ColorGradient {
 	}
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type")]
 pub enum MultiColor {
 	Single(Color),
@@ -180,7 +111,7 @@ pub enum MultiColor {
 	Gradient(ColorGradient),
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
 pub struct ColorConfig {
 	#[educe(Default = 0.0)]

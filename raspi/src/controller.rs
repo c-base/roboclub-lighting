@@ -9,7 +9,6 @@ use std::{
 use educe::Educe;
 use eyre::{eyre, Result};
 use palette::{encoding, Blend, IntoColor, Mix, Srgba, WithAlpha};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serial_ws2812::{Config, SerialWs2812};
 use tracing::{debug, error, info, instrument, trace, warn};
@@ -23,7 +22,7 @@ const BLANK: [[u8; 3]; LEDS_PER_STRIP] = [[0; 3]; LEDS_PER_STRIP];
 
 const SPI_CLOCK: u32 = 50_000_000;
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe)]
 #[educe(Default)]
 pub struct ControllerConfig {
 	#[educe(Default = 1.0)]

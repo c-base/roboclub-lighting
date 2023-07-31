@@ -4,19 +4,23 @@ use std::{
 };
 
 use educe::Educe;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{controller::Controller, db, effects::prelude::*};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
 pub struct MovingLightsConfig {
+	#[schema(minimum = 1, maximum = 100)]
 	#[educe(Default = 20)]
-	frequency:      u64,
+	frequency: u64,
+
+	#[schema(minimum = 1, maximum = 100)]
 	#[educe(Default = 15)]
-	impulse_len:    usize,
+	impulse_len: usize,
+
+	#[schema(minimum = 1, maximum = 10000)]
 	#[educe(Default = 2000)]
 	pulse_delay_ms: u64,
 }

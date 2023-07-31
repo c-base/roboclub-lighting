@@ -26,14 +26,13 @@ rand = "0.8"
 rocket = "0.4"
 rocket_contrib = "0.4"
 rocket_cors = "0.5"
-schemars = "0.8"
 serde = "1"
 sled = "0.34"
 tokio = { version = "1.29.1", features = ["full"] }
 tracing = "0.1"
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-utoipa = { version = "3.4.3", features = ["axum_extras"] }
+utoipa = { version = "3.4.3", features = ["axum_extras", "debug"] }
 validator = { version = "0.16.1", features = ["derive"] }
 
 [dependencies.palette]

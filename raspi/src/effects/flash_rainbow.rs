@@ -1,5 +1,4 @@
 use educe::Educe;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -10,14 +9,17 @@ use crate::{
 	effects::{config::color::ColorConfig, prelude, prelude::*, Effect},
 };
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
 pub struct FlashRainbowConfig {
-	#[schema(inline)]
+	// #[schema(inline)]
 	colors: ColorGradient,
 
+	#[schema(minimum = 0.00001, maximum = 5.0)]
 	#[educe(Default = 0.2)]
-	period:        f32,
+	period: f32,
+
+	#[schema(minimum = 0.00001, maximum = 0.99999)]
 	#[educe(Default = 0.1)]
 	on_percentage: f32,
 }

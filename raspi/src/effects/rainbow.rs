@@ -1,23 +1,31 @@
 use educe::Educe;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{controller::Controller, db, effects::prelude::*};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
 pub struct RainbowConfig {
+	#[schema(minimum = 0.00001, maximum = 100.0)]
 	#[educe(Default = 0.25)]
-	wave_speed:     f32,
+	wave_speed: f32,
+
+	#[schema(minimum = 0.00001, maximum = 200.0)]
 	#[educe(Default = 64.0)]
 	wave_frequency: f32,
+
+	#[schema(minimum = 0.0, maximum = 1.0)]
 	#[educe(Default = 1.0)]
 	wave_influence: f32,
+
+	#[schema(minimum = 0.00001, maximum = 100.0)]
 	#[educe(Default = 0.5)]
-	hue_speed:      f32,
+	hue_speed: f32,
+
+	#[schema(minimum = 0.0, maximum = 1.0)]
 	#[educe(Default = 1.0)]
-	hue_factor:     f32,
+	hue_factor: f32,
 }
 
 pub struct Rainbow {

@@ -1,14 +1,13 @@
 use educe::Educe;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{config::color::Color, db, effects::prelude::*};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
 pub struct SolidConfig {
-	#[schema(inline)]
+	// #[schema(inline)]
 	color: Color,
 }
 

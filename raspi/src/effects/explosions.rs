@@ -6,7 +6,6 @@ use std::{
 use educe::Educe;
 use palette::{IntoColor, Mix, Shade};
 use rand::{thread_rng, Rng};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -17,20 +16,27 @@ use crate::{
 	effects::{config::color::ColorConfig, prelude::*},
 };
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
 pub struct ExplosionsConfig {
-	#[schema(inline)]
+	// #[schema(inline)]
 	colors: ColorGradient,
 
+	#[schema(minimum = 1, maximum = 10000)]
 	#[educe(Default = 250)]
 	explosion_interval: u64,
+
+	#[schema(minimum = 0.0, maximum = 10.0)]
 	#[educe(Default = 0.5)]
-	start_speed:        f32,
+	start_speed: f32,
+
+	#[schema(minimum = 0.00001, maximum = 0.99999)]
 	#[educe(Default = 0.99)]
-	speed_falloff:      f32,
+	speed_falloff: f32,
+
+	#[schema(minimum = 0.00001, maximum = 0.99999)]
 	#[educe(Default = 0.05)]
-	darken_factor:      f32,
+	darken_factor: f32,
 }
 
 struct Explosion {

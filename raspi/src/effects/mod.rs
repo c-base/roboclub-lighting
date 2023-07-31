@@ -1,8 +1,8 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use eyre::Result;
-use schemars::{schema::RootSchema, schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
+use utoipa::{openapi::Schema, schema, ToSchema};
 
 use crate::effects::prelude::*;
 pub use crate::effects::{
@@ -38,12 +38,12 @@ pub mod snake;
 pub mod solid;
 pub mod static_rainbow;
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, ToSchema)]
 pub struct EmptyConfig {}
 
 pub trait Effect: Send + Sync {
-	fn schema(&self) -> RootSchema {
-		schema_for!(EmptyConfig)
+	fn schema(&self) -> Schema {
+		Schema::default()
 	}
 
 	fn config(&self) -> Result<serde_json::Value> {
@@ -60,7 +60,7 @@ pub trait Effect: Send + Sync {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EffectData {
 	pub name:    String,
-	pub schema:  RootSchema,
+	pub schema:  Schema,
 	pub config:  serde_json::Value,
 	pub presets: HashMap<String, serde_json::Value>,
 }
@@ -78,8 +78,16 @@ where
 macro_rules! effect {
 	($struct:ident, $config:ident) => {
 		impl Effect for $struct {
-			fn schema(&self) -> schemars::schema::RootSchema {
-				schemars::schema_for!($config)
+			fn schema(&self) -> utoipa::openapi::Schema {
+				match <$config as utoipa::ToSchema>::schema().1 {
+					utoipa::openapi::RefOr::Ref(_) => {
+						panic!(
+							"Effect::schema needs to return a schema, {}::schema() returned a ref",
+							stringify!($config)
+						)
+					}
+					utoipa::openapi::RefOr::T(s) => s,
+				}
 			}
 			fn config(&self) -> eyre::Result<serde_json::Value> {
 				Ok(serde_json::to_value(&self.config)?)
