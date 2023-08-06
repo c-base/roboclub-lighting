@@ -1,7 +1,4 @@
-use std::ops::Deref;
-
 use educe::Educe;
-use effect_derive::Schema;
 use palette::Mix;
 use rand::Rng;
 use serde::{Deserialize, Serialize};

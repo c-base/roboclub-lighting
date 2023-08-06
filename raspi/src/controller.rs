@@ -1,39 +1,23 @@
 use std::{
-	error::Error,
 	fmt::Debug,
 	ops::{Bound, Index, IndexMut, RangeBounds},
 	slice::{Iter, IterMut},
-	time::Duration,
 };
 
-use educe::Educe;
 use eyre::{eyre, Result};
-use palette::{encoding, Blend, IntoColor, Mix, Srgba, WithAlpha};
-use serde::{Deserialize, Serialize};
-use serial_ws2812::{Config, SerialWs2812};
-use tracing::{debug, error, info, instrument, trace, warn};
+use palette::{encoding, Mix, WithAlpha};
+use serial_ws2812::{Config as SerialConfig, SerialWs2812};
+use tracing::{error, instrument, trace};
 
-use crate::color::{Rgb, Rgba};
+use crate::{
+	color::{Rgb, Rgba},
+	config::GlobalConfig,
+};
 
 pub const LEDS_PER_STRIP: usize = 480;
 pub const STRIPS: usize = 3;
 
-const BLANK: [[u8; 3]; LEDS_PER_STRIP] = [[0; 3]; LEDS_PER_STRIP];
-
-const SPI_CLOCK: u32 = 50_000_000;
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe)]
-#[educe(Default)]
-pub struct ControllerConfig {
-	#[educe(Default = 1.0)]
-	pub brightness: f32,
-	#[educe(Default = false)]
-	pub as_srgb:    bool,
-}
-
 pub struct Controller {
-	config: ControllerConfig,
-
 	serial: SerialWs2812,
 
 	state:  [[Rgba; LEDS_PER_STRIP]; STRIPS],
@@ -41,15 +25,16 @@ pub struct Controller {
 }
 
 pub trait LedController {
-	fn write_state(&mut self);
+	fn write_state(&mut self, config: &GlobalConfig);
 	fn state_mut(&mut self) -> &mut [[Rgba; LEDS_PER_STRIP]; STRIPS];
 	fn state_mut_flat(&mut self) -> &mut [Rgba; LEDS_PER_STRIP * STRIPS];
 	fn views_mut(&mut self) -> Views;
+	fn section(&mut self, strip: usize, start: usize, len: usize, reversed: bool) -> Section;
 }
 
 impl Controller {
-	pub fn new(config: ControllerConfig) -> Result<Self> {
-		let mut serial = SerialWs2812::find(Config {
+	pub fn new() -> Result<Self> {
+		let mut serial = SerialWs2812::find(SerialConfig {
 			leds:   LEDS_PER_STRIP,
 			strips: STRIPS,
 		})?
@@ -58,11 +43,6 @@ impl Controller {
 		serial.configure()?;
 
 		Ok(Controller {
-			config: ControllerConfig {
-				brightness: 1.0,
-				as_srgb:    false,
-			},
-
 			serial,
 
 			state: [[(); LEDS_PER_STRIP]; STRIPS].map(|strips| strips.map(|_| Rgba::default())),
@@ -71,24 +51,13 @@ impl Controller {
 	}
 
 	#[instrument(skip(self))]
-	pub fn get_config(&self) -> ControllerConfig {
-		self.config.clone()
-	}
-
-	#[instrument(skip(self))]
-	pub fn set_config(&mut self, config: ControllerConfig) -> ControllerConfig {
-		self.config = config.clone();
-		config
-	}
-
-	#[instrument(skip(self))]
-	fn encode_state(&mut self) {
+	fn encode_state(&mut self, config: &GlobalConfig) {
 		for (i, c) in self.state.iter().flatten().enumerate() {
 			let (c, a) = c.split();
 			// from black to the colour
-			let c = Rgb::default().mix(&c.into_linear(), a * self.config.brightness);
+			let c = Rgb::default().mix(&c.into_linear(), a * config.brightness);
 
-			let (r, g, b) = if self.config.as_srgb {
+			let (r, g, b) = if config.as_srgb {
 				c.into_encoding::<encoding::Srgb>()
 					.into_format::<u8>()
 					.into_components()
@@ -101,51 +70,16 @@ impl Controller {
 			self.buffer[i * 3 + 2] = b;
 		}
 	}
-
-	// #[instrument(skip(self))]
-	// fn wait_for_interrupt(&mut self, timeout_ms: u64) -> Option<Level> {
-	// 	self.ready_pin
-	// 		.poll_interrupt(false, Some(Duration::from_millis(timeout_ms)))
-	// 		.expect("should be able to poll interrupt")
-	// }
-	//
-	// #[instrument(skip(self))]
-	// fn send_command(&mut self, command: u8) -> Result<(), String> {
-	// 	let mut read = [0x0];
-	//
-	// 	let res = self.spi.transfer(&mut read, &[command]);
-	//
-	// 	// println!("received {:?}", read);
-	//
-	// 	res.map_err(|e| format!("sending to spi failed: {:?}", e))
-	// 		.and_then(|_| {
-	// 			if read[0] == 1 {
-	// 				return Ok(());
-	// 			}
-	// 			Err(format!(
-	// 				"sending spi command failed, got {} instead of ack(1)",
-	// 				read[0]
-	// 			))
-	// 		})
-	// }
-
-	/// Writes the inner state to the strips
-	#[instrument(skip(self))]
-	fn write_state_internal(&mut self) -> Result<()> {
-		trace!("sending ws2812 buffer over serial");
-		self.encode_state();
-
-		self.serial.send_leds(&self.buffer)?;
-
-		Ok(())
-	}
 }
 
 impl LedController for Controller {
 	/// Writes the inner state to the strips
 	#[instrument(skip(self))]
-	fn write_state(&mut self) {
-		match self.write_state_internal() {
+	fn write_state(&mut self, config: &GlobalConfig) {
+		trace!("sending ws2812 buffer over serial");
+		self.encode_state(config);
+
+		match self.serial.send_leds(&self.buffer) {
 			Err(e) => error!("error sending state: {:#}", e),
 			_ => {}
 		};
@@ -166,14 +100,13 @@ impl LedController for Controller {
 		Views::new(&mut self.state)
 	}
 
-	// pub fn one_strip_mut(&mut self) -> &mut [[u8; 3]; LEDS_PER_STRIP] {}
+	#[instrument(skip(self))]
+	fn section(&mut self, strip: usize, start: usize, len: usize, reversed: bool) -> Section {
+		let strip = &mut self.state[strip];
+		let section = &mut strip[start..start + len];
 
-	// pub fn named_views_mut<'a>(&mut self) -> &'a mut Views {
-	// 	self.state[0].split_at_mut()
-	//
-	// 	let mut views = Views {}
-	// 	&mut views
-	// }
+		Section::new(section, reversed)
+	}
 }
 
 ///
@@ -313,7 +246,7 @@ impl<'a> Section<'a> {
 			.fill_with(|| val.clone());
 	}
 
-	pub fn set_aa(&mut self, mut index: f32, val: &Rgba) {
+	pub fn set_aa(&mut self, index: f32, val: &Rgba) {
 		let lower = index.floor().max(0.0).min((self.len() - 1) as f32) as usize;
 		let upper = index.ceil().max(0.0).min((self.len() - 1) as f32) as usize;
 

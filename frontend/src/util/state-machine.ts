@@ -2,7 +2,7 @@ import { EventObject, Typestate } from "@xstate/fsm/lib/types";
 import { StateMachine } from "@xstate/fsm";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 
-export type SendFunc<TEvent extends EventObject> = (TEvent) => void;
+export type SendFunc<TEvent extends EventObject> = (event: TEvent) => void;
 
 export enum MESSAGES {
 	INIT = "INIT",
@@ -10,24 +10,33 @@ export enum MESSAGES {
 	FAILURE = "FAILURE",
 }
 
-export type ActionFunc<TContext extends object, TEvent extends EventObject> = (
-	context: TContext,
-	event: TEvent,
-	send: SendFunc<TEvent>
-) => void;
+type ActionEvent<TEvent extends EventObject> =
+	| ({
+			type: MESSAGES.SUCCESS;
+	  } & Omit<TEvent, "type">)
+	| {
+			type: MESSAGES.FAILURE;
+			error: any;
+	  };
+
+export type ActionFunc<
+	TContext extends object,
+	TEvent extends EventObject,
+	TEventOut extends EventObject
+> = (context: TContext, event: TEvent, send: SendFunc<TEventOut>) => void;
 
 export function asyncAction<
 	TContext extends object,
 	TEvent extends EventObject,
-	TResult extends any,
-	TEventOut extends EventObject
+	TEventOut extends EventObject,
+	TResult extends any = Omit<TEventOut, "type">
 >({
 	promise,
 	cb = (d) => d as any,
 }: {
 	promise: (context: TContext, event: TEvent) => Promise<TResult>;
 	cb?: (result: TResult) => Omit<TEventOut, "type">;
-}): ActionFunc<TContext, TEvent> {
+}): ActionFunc<TContext, TEvent, ActionEvent<TEventOut>> {
 	return (context, event, send) => {
 		promise(context, event)
 			.then((data) => {

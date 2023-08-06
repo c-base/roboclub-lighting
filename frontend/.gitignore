@@ -14,3 +14,4 @@ pnpm-debug.log*
 lerna-debug.log*
 
 /wled
+/src/proto

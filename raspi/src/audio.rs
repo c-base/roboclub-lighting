@@ -1,3 +1,5 @@
+use std::{borrow::BorrowMut, cell::RefCell, rc::Rc};
+
 use libpulse_binding::{
 	callbacks::ListResult,
 	context::Context,
@@ -8,7 +10,6 @@ use libpulse_binding::{
 use vis_core::{analyzer, recorder::pulse::PulseBuilder, Frames};
 
 use crate::APP_NAME;
-use std::{borrow::BorrowMut, cell::RefCell, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub struct AnalyzerResult {
@@ -150,3 +151,75 @@ pub fn get_frames() -> Result<
 
 	Ok(frames)
 }
+
+// let mut frames = audio::get_frames().unwrap();
+//
+// let mut last_beat = 0;
+// for frame in frames.iter() {
+// 	// log::trace!("Frame: {:7}@{:.3}", frame.frame, frame.time);
+//
+// 	frame.info(|info| {
+// 		// use sfml::graphics::Shape;
+//
+// 		let max = info.average.max();
+// 		let n50 = info.average.freq_to_id(50.0);
+// 		let n100 = info.average.freq_to_id(100.0);
+//
+// 		let beat = if info.beat > last_beat {
+// 			last_beat = info.beat;
+// 			// rectangle.set_fill_color(&graphics::Color::rgb(255, 255, 255));
+// 			true
+// 		} else {
+// 			false
+// 		};
+//
+// 		for (i, b) in info.average.iter().enumerate() {
+// 			// use sfml::graphics::Transformable;
+//
+// 			let int = ((b / max).sqrt() * 255.0) as u8;
+// 			if !beat {
+// 				// rectangle.set_fill_color(&graphics::Color::rgb(int, int, int));
+// 				if i == n50 || i == n100 {
+// 					// rectangle.set_fill_color(&graphics::Color::rgb(255, 0, 0));
+// 				}
+// 			}
+// 			// rectangle.set_position(system::Vector2f::new(
+// 			// 	i as f32 / BUCKETS as f32,
+// 			// 	LINES as f32 - 1.0,
+// 			// ));
+// 			// window.draw(&rectangle);
+// 		}
+// 	});
+//
+// 	// window.display();
+// 	std::thread::sleep(Duration::from_millis(10));
+// }
+
+// let home = warp::fs::dir("public");
+//
+// let ws = warp::path("ws")
+// 	// The `ws()` filter will prepare the Websocket handshake.
+// 	.and(warp::ws())
+// 	.map(|ws: warp::ws::Ws| {
+// 		// And then our closure will be called when it completes...
+// 		ws.on_upgrade(|websocket| {
+// 			// Just echo all messages back...
+// 			let (tx, rx) = websocket.split();
+// 			rx.forward(tx).map(|result| {
+// 				if let Err(e) = result {
+// 					eprintln!("websocket error: {:?}", e);
+// 				}
+// 			})
+// 		})
+// 	});
+//
+// let routes = home.or(ws).with(warp::trace::request());
+//
+// let handle = tokio::runtime::Handle::current();
+//
+// let server = warp::serve(routes);
+// let (_, srv) = server.try_bind_with_graceful_shutdown(([0, 0, 0, 0], 3030), async {
+// 	tokio::signal::ctrl_c()
+// 		.await
+// 		.expect("failed to listen for event");
+// })?;

@@ -21,7 +21,7 @@ impl Perlin {
 		// 	seed[0], seed[1], seed[2], seed[3], seed[0], seed[1], seed[2], seed[3], seed[0],
 		// 	seed[1], seed[2], seed[3], seed[0], seed[1], seed[2], seed[3],
 		// ];
-		let mut rng = ::rand::thread_rng();
+		let mut rng = thread_rng();
 
 		let mut m_perm = [u8::default(); 512];
 		let mut m_perm12 = [u8::default(); 512];

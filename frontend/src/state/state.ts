@@ -1,11 +1,21 @@
 import { ActionFunc, asyncAction, MESSAGES as STD_MESSAGES } from "../util/state-machine";
 import {
-	EffectData,
-	getEffects,
-	GetEffectsResponse,
-	setActiveEffect,
-	SetActiveEffectResponse,
-	setEffectConfig,
+	Config,
+	DisplayState,
+	DisplayStateEffect,
+	Effect,
+	getConfig,
+	getState,
+	listEffects,
+	listPresets,
+	listSegments,
+	loadPreset,
+	savePreset,
+	setConfig,
+	setPreset,
+	setSegments,
+	setState,
+	Strip,
 } from "./api";
 import { assign, createMachine } from "@xstate/fsm";
 import { EventObject } from "@xstate/fsm/lib/types";
@@ -13,89 +23,213 @@ import { EventObject } from "@xstate/fsm/lib/types";
 export enum STATES {
 	LOADING = "loading",
 	LOADED = "loaded",
-	SET_ACTIVE_EFFECT = "setActiveEffect",
+	SET_CONFIG = "setConfig",
 	SET_EFFECT_CONFIG = "setEffectConfig",
+	SET_SEGMENTS = "setSegments",
+	SET_PRESET = "setPreset",
+	LOAD_PRESET = "loadPreset",
+	SAVE_PRESET = "savePreset",
+	SET_STATE = "setState",
 	ERROR = "error",
 }
 
+export type ALL_STATES = (typeof STATES)[keyof typeof STATES];
+
 export enum CUSTOM_MESSAGES {
-	SET_ACTIVE_EFFECT = "SET_ACTIVE_EFFECT",
+	SET_CONFIG = "SET_CONFIG",
 	SET_EFFECT_CONFIG = "SET_EFFECT_CONFIG",
+	SET_SEGMENTS = "SET_SEGMENTS",
+	SET_PRESET = "SET_PRESET",
+	LOAD_PRESET = "LOAD_PRESET",
+	SAVE_PRESET = "SAVE_PRESET",
+	SET_STATE = "SET_STATE",
 	RETRY = "RETRY",
 }
 
 export const MESSAGES = { ...STD_MESSAGES, ...CUSTOM_MESSAGES };
-type MESSAGE_TYPES = typeof MESSAGES;
 
 type Context = {
-	effects: Record<string, EffectData>;
-	activeEffect: string;
+	config: Config;
+	effects: Record<string, Effect>;
+	segments: Strip[];
+	presets: Record<string, DisplayState>;
+	state: DisplayState;
 };
 
-type LoadEffectsSuccessEvent = {
-	type: MESSAGE_TYPES["SUCCESS"];
-	effects: Record<string, EffectData>;
-	activeEffect: string;
+type FailureEvent = {
+	type: typeof MESSAGES.FAILURE;
+	error: any;
 };
 
-type SetActiveEffectSuccessEvent = {
-	type: string;
-	activeEffect: EffectData;
+type SuccessEvent<DATA extends {} = {}> = { type: typeof MESSAGES.SUCCESS } & DATA;
+
+type LoadAllSuccessEvent = {
+	type: typeof MESSAGES.SUCCESS;
+} & LoadAllResponse;
+
+type LoadAllResponse = {
+	config: Config;
+	effects: Record<string, Effect>;
+	segments: Strip[];
+	presets: Record<string, DisplayState>;
+	state: DisplayState;
 };
 
-type SetActiveEffectEvent = {
-	type: string;
-	activeEffect: string;
+type SetConfigEvent = {
+	type: typeof MESSAGES.SET_CONFIG;
+	config: Config;
 };
 
-type SetEffectConfigSuccessEvent = {
-	type: string;
-	effect: EffectData;
+type SetEffectConfigEvent = {
+	type: typeof MESSAGES.SET_EFFECT_CONFIG;
+	idx: number;
+} & DisplayStateEffect;
+
+type ConfigSuccessEvent = SuccessEvent<{ config: Config }>;
+
+type SetSegmentsEvent = {
+	type: typeof MESSAGES.SET_SEGMENTS;
+	segments: Strip[];
 };
 
-export const machine = createMachine<Context>({
-	id: "dropdown",
+type SetSegmentsSuccessEvent = SuccessEvent<{ segments: Strip[] }>;
+
+type SetPresetEvent = {
+	type: typeof MESSAGES.SET_PRESET;
+	name: string;
+	state: DisplayState;
+};
+
+type DisplayStateSuccessEvent = SuccessEvent<{ state: DisplayState }>;
+
+type LoadPresetEvent = {
+	type: typeof MESSAGES.LOAD_PRESET;
+	name: string;
+};
+
+type SavePresetEvent = {
+	type: typeof MESSAGES.SAVE_PRESET;
+	name: string;
+};
+
+type SetStateEvent = {
+	type: typeof MESSAGES.SET_STATE;
+	state: DisplayState;
+};
+
+type RetryEvent = {
+	type: typeof MESSAGES.RETRY;
+};
+
+type Events =
+	| SetConfigEvent
+	| SetEffectConfigEvent
+	| SetSegmentsEvent
+	| SetPresetEvent
+	| LoadPresetEvent
+	| SavePresetEvent
+	| SetStateEvent
+	| SuccessEvent
+	| FailureEvent
+	| RetryEvent;
+
+export const machine = createMachine<
+	Context,
+	Events,
+	{
+		value: ALL_STATES;
+		context: Context;
+	}
+>({
+	id: "control",
 	initial: STATES.LOADING,
 	context: {
+		config: {
+			brightness: 1.0,
+			srgb: false,
+		},
 		effects: {},
-		activeEffect: "",
+		segments: [],
+		presets: {},
+		state: {
+			effects: [],
+			strips: [],
+		},
 	},
 	states: {
 		[STATES.LOADING]: {
-			entry: "loadEffects",
+			entry: ["loadAll"],
 			on: {
 				[MESSAGES.SUCCESS]: {
 					target: STATES.LOADED,
-					actions: assign<Context, LoadEffectsSuccessEvent>({
-						effects: (_, event) => event.effects,
-						activeEffect: (_, event) => event.activeEffect,
-					}),
+					actions: assign<Context, LoadAllSuccessEvent>((_, event) => event),
 				},
 				[MESSAGES.FAILURE]: STATES.ERROR,
 			},
 		},
 		[STATES.LOADED]: {
 			on: {
-				[MESSAGES.SET_ACTIVE_EFFECT]: {
-					target: STATES.SET_ACTIVE_EFFECT,
-					actions: assign<Context, SetActiveEffectEvent>({
-						activeEffect: (_, event) => event.activeEffect,
+				[MESSAGES.SET_CONFIG]: {
+					target: STATES.SET_CONFIG,
+					actions: assign<Context, SetConfigEvent>({
+						config: (_, event) => event.config,
 					}),
 				},
 				[MESSAGES.SET_EFFECT_CONFIG]: {
 					target: STATES.SET_EFFECT_CONFIG,
 					actions: assign<Context, SetEffectConfigEvent>({
-						effects: (ctx, event) => {
-							let effects = { ...ctx.effects };
-							effects[event.name].config = event.config;
-							return effects;
+						state: (ctx, { idx, effect, config }) => {
+							let state = {
+								effects: [...ctx.state.effects],
+								strips: ctx.state.strips,
+							} satisfies DisplayState;
+
+							state.effects[idx] = { effect, config };
+
+							return state;
 						},
+					}),
+				},
+				[MESSAGES.SET_SEGMENTS]: {
+					target: STATES.SET_SEGMENTS,
+					actions: assign<Context, SetSegmentsEvent>({
+						segments: (_, event) => event.segments,
+					}),
+				},
+				[MESSAGES.SET_PRESET]: {
+					target: STATES.SET_PRESET,
+					actions: assign<Context, SetPresetEvent>({
+						presets: (ctx, event) => ({
+							...ctx.presets,
+							[event.name]: event.state,
+						}),
+					}),
+				},
+				[MESSAGES.LOAD_PRESET]: {
+					target: STATES.LOAD_PRESET,
+					actions: assign<Context, LoadPresetEvent>({
+						state: (ctx, event) => ctx.presets[event.name],
+					}),
+				},
+				[MESSAGES.SAVE_PRESET]: {
+					target: STATES.SAVE_PRESET,
+					actions: assign<Context, SavePresetEvent>({
+						presets: (ctx, event) => ({
+							...ctx.presets,
+							[event.name]: ctx.state,
+						}),
+					}),
+				},
+				[MESSAGES.SET_STATE]: {
+					target: STATES.SET_STATE,
+					actions: assign<Context, SetStateEvent>({
+						state: (_, event) => event.state,
 					}),
 				},
 			},
 		},
-		[STATES.SET_ACTIVE_EFFECT]: {
-			entry: ["setActiveEffect"],
+		[STATES.SET_CONFIG]: {
+			entry: ["setConfig"],
 			on: {
 				[MESSAGES.SUCCESS]: STATES.LOADED,
 				[MESSAGES.FAILURE]: STATES.ERROR,
@@ -104,16 +238,42 @@ export const machine = createMachine<Context>({
 		[STATES.SET_EFFECT_CONFIG]: {
 			entry: ["setEffectConfig"],
 			on: {
-				[MESSAGES.SUCCESS]: {
-					target: STATES.LOADED,
-					actions: assign<Context, SetEffectConfigSuccessEvent>({
-						effects: (ctx, { effect }) => {
-							let effects = { ...ctx.effects };
-							effects[effect.name] = effect;
-							return effects;
-						},
-					}),
-				},
+				[MESSAGES.SUCCESS]: STATES.LOADED,
+				[MESSAGES.FAILURE]: STATES.ERROR,
+			},
+		},
+		[STATES.SET_SEGMENTS]: {
+			entry: ["setSegments"],
+			on: {
+				[MESSAGES.SUCCESS]: STATES.LOADED,
+				[MESSAGES.FAILURE]: STATES.ERROR,
+			},
+		},
+		[STATES.SET_PRESET]: {
+			entry: ["setPreset"],
+			on: {
+				[MESSAGES.SUCCESS]: STATES.LOADED,
+				[MESSAGES.FAILURE]: STATES.ERROR,
+			},
+		},
+		[STATES.SAVE_PRESET]: {
+			entry: ["savePreset"],
+			on: {
+				[MESSAGES.SUCCESS]: STATES.LOADED,
+				[MESSAGES.FAILURE]: STATES.ERROR,
+			},
+		},
+		[STATES.LOAD_PRESET]: {
+			entry: ["loadPreset"],
+			on: {
+				[MESSAGES.SUCCESS]: STATES.LOADED,
+				[MESSAGES.FAILURE]: STATES.ERROR,
+			},
+		},
+		[STATES.SET_STATE]: {
+			entry: ["setState"],
+			on: {
+				[MESSAGES.SUCCESS]: STATES.LOADED,
 				[MESSAGES.FAILURE]: STATES.ERROR,
 			},
 		},
@@ -126,36 +286,61 @@ export const machine = createMachine<Context>({
 	},
 });
 
-type SetEffectConfigEvent = {
-	type: string;
-	name: string;
-	config: { [key: string]: any };
-};
+export const actions: { [key: string]: ActionFunc<Context, any, any> } = {
+	loadAll: asyncAction<Context, EventObject, LoadAllSuccessEvent>({
+		promise: async () => {
+			let [config, effects, segments, presets, state] = await Promise.all([
+				getConfig(),
+				listEffects(),
+				listSegments(),
+				listPresets(),
+				getState(),
+			]);
 
-export const actions: { [key: string]: ActionFunc<Context, any> } = {
-	loadEffects: asyncAction<Context, EventObject, GetEffectsResponse, LoadEffectsSuccessEvent>({
-		promise: () => getEffects(),
-		cb: ({ effects, active_effect: activeEffect }) => ({
-			effects,
-			activeEffect,
-		}),
+			return { config, effects, segments, presets, state };
+		},
+		cb: (d) => d,
 	}),
-	setActiveEffect: asyncAction<
-		Context,
-		SetActiveEffectEvent,
-		SetActiveEffectResponse,
-		SetActiveEffectSuccessEvent
-	>({
-		promise: (_, event) => setActiveEffect(event.activeEffect),
-		cb: ({ active_effect: activeEffect }) => ({ activeEffect }),
+	setConfig: asyncAction<Context, SetConfigEvent, ConfigSuccessEvent, Config>({
+		promise: (_, { config }) => setConfig(config),
+		cb: (config) => ({ config }),
 	}),
 	setEffectConfig: asyncAction<
 		Context,
 		SetEffectConfigEvent,
-		EffectData,
-		SetEffectConfigSuccessEvent
+		DisplayStateSuccessEvent,
+		DisplayState
 	>({
-		promise: (_, event) => setEffectConfig(event.name, event.config),
-		cb: (effect) => ({ effect }),
+		promise: (ctx, { idx, effect, config }) => {
+			let state = {
+				effects: [...ctx.state.effects],
+				strips: ctx.state.strips,
+			} satisfies DisplayState;
+
+			state.effects[idx] = { effect, config };
+
+			return setState(state);
+		},
+		cb: (state) => ({ state }),
+	}),
+	setSegments: asyncAction<Context, SetSegmentsEvent, SetSegmentsSuccessEvent, Strip[]>({
+		promise: (_, { segments }) => setSegments(segments),
+		cb: (segments) => ({ segments }),
+	}),
+	setPreset: asyncAction<Context, SetPresetEvent, DisplayStateSuccessEvent, DisplayState>({
+		promise: (_, { name, state }) => setPreset(name, state),
+		cb: (state) => ({ state }),
+	}),
+	loadPreset: asyncAction<Context, LoadPresetEvent, DisplayStateSuccessEvent, DisplayState>({
+		promise: (_, { name }) => loadPreset(name),
+		cb: (state) => ({ state }),
+	}),
+	savePreset: asyncAction<Context, SavePresetEvent, DisplayStateSuccessEvent, DisplayState>({
+		promise: (_, { name }) => savePreset(name),
+		cb: (state) => ({ state }),
+	}),
+	setState: asyncAction<Context, SetStateEvent, DisplayStateSuccessEvent, DisplayState>({
+		promise: (_, { state }) => setState(state),
+		cb: (state) => ({ state }),
 	}),
 };

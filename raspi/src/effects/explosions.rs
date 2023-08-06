@@ -4,16 +4,14 @@ use std::{
 };
 
 use educe::Educe;
-use palette::{IntoColor, Mix, Shade};
+use palette::{Mix, Shade};
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{
-	config::color::ColorGradient,
-	controller::Controller,
-	db,
-	effects::{config::color::ColorConfig, prelude::*},
+	config::db,
+	effects::{config::color::ColorGradient, prelude::*},
 };
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
@@ -75,7 +73,7 @@ impl Explosions {
 	}
 
 	fn run(&mut self, ctrl: &mut impl LedController) {
-		let mut duration = Duration::from_millis(self.config.explosion_interval);
+		let duration = Duration::from_millis(self.config.explosion_interval);
 
 		let mut rand = thread_rng();
 
@@ -106,9 +104,9 @@ impl Explosions {
 
 		let mut pop_count = 0;
 		for explosion in self.explosions.iter_mut() {
-			let mut strip = &mut state[explosion.strip];
+			let strip = &mut state[explosion.strip];
 
-			let start_width = explosion.width;
+			// let start_width = explosion.width;
 			explosion.width += explosion.speed;
 			let end_width = explosion.width;
 
@@ -146,7 +144,7 @@ impl Explosions {
 				}
 			}
 		}
-		for i in 0..pop_count {
+		for _ in 0..pop_count {
 			self.explosions.pop_front();
 		}
 

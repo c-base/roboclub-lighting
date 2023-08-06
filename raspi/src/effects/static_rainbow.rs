@@ -1,9 +1,8 @@
 use educe::Educe;
-use palette::{FromColor, IntoColor};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{controller::Controller, db, effects::prelude::*};
+use crate::{config::db, effects::prelude::*};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]

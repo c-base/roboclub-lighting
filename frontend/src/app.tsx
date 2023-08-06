@@ -1,59 +1,110 @@
 import { LocationProvider } from "preact-iso";
-import { useCallback, useMemo } from "preact/hooks";
 
 import { useMachine } from "./util/state-machine";
-
 import { actions, machine, MESSAGES, STATES } from "./state/state";
-import { EffectData } from "./state/api";
-
 import { EffectSettings } from "./components/effect-settings";
 import { Sidebar } from "./components/sidebar";
 
 import styles from "./app.module.css";
+import { useCallback } from "preact/hooks";
+import { DisplayState, EffectConfig } from "./state/api.ts";
 
 export function App() {
 	const [
 		{
 			value: state,
-			context: { activeEffect, effects },
+			context: { config, segments, effects, presets, state: displayState },
 		},
 		send,
 	] = useMachine(machine, actions);
 
-	let setActiveEffect = useCallback(
-		(activeEffect: string) => {
+	// SET_CONFIG = "setConfig",
+	// 	SET_EFFECT_CONFIG = "setEffectConfig",
+	// 	SET_SEGMENTS = "setSegments",
+	// 	SET_PRESET = "setPreset",
+	// 	LOAD_PRESET = "loadPreset",
+	// 	SAVE_PRESET = "savePreset",
+	// 	SET_STATE = "setState",
+
+	// let setConfig = useCallback(
+	// 	(config: Config) => {
+	// 		send({
+	// 			type: MESSAGES.SET_CONFIG,
+	// 			config,
+	// 		});
+	// 	},
+	// 	[send]
+	// );
+	//
+	// let setEffectConfig = useCallback(
+	// 	(idx: number, config: EffectConfig) => {
+	// 		send({
+	// 			type: MESSAGES.SET_EFFECT_CONFIG,
+	// 			idx,
+	// 			config,
+	// 		});
+	// 	},
+	// 	[send]
+	// );
+	//
+	// let setSegments = useCallback(
+	// 	(segments: Segments) => {
+	// 		send({
+	// 			type: MESSAGES.SET_SEGMENTS,
+	// 			segments,
+	// 		});
+	// 	},
+	// 	[send]
+	// );
+	//
+	// let setPreset = useCallback(
+	// 	(name: string, state: DisplayState) => {
+	// 		send({
+	// 			type: MESSAGES.SET_PRESET,
+	// 			name,
+	// 			state,
+	// 		});
+	// 	},
+	// 	[send]
+	// );
+
+	// let activeEffectData: EffectData | null = useMemo(() => {
+	// 	if (!activeEffect) return null;
+	// 	let data = effects[activeEffect];
+	// 	return data == null ? null : data;
+	// }, [activeEffect, effects]);
+
+	let loadPreset = useCallback(
+		(name: string) => {
 			send({
-				type: MESSAGES.SET_ACTIVE_EFFECT,
-				activeEffect,
+				type: MESSAGES.LOAD_PRESET,
+				name,
 			});
 		},
 		[send]
 	);
 
 	let setEffectConfig = useCallback(
-		(config: Record<string, any>) => {
+		(idx: number, effect: string, config: EffectConfig) => {
 			send({
 				type: MESSAGES.SET_EFFECT_CONFIG,
-				name: activeEffect,
+				idx,
+				effect,
 				config,
 			});
 		},
-		[activeEffect, effects, send]
+		[send]
 	);
-
-	let activeEffectData: EffectData | null = useMemo(() => {
-		if (!activeEffect) return null;
-		let data = effects[activeEffect];
-		return data == null ? null : data;
-	}, [activeEffect, effects]);
 
 	return (
 		<LocationProvider>
 			<Sidebar
 				state={state}
-				activeEffect={activeEffect}
+				displayState={displayState}
 				effects={effects}
-				setActiveEffect={setActiveEffect}
+				presets={presets}
+				loadPreset={loadPreset}
+				setEffectConfig={setEffectConfig}
 			/>
 			<main class={styles.main}>
 				{state === STATES.ERROR && (
@@ -62,10 +113,13 @@ export function App() {
 						<button onClick={() => send({ type: MESSAGES.RETRY })}>Retry</button>
 					</div>
 				)}
-				{activeEffectData != null && (
+				{state === STATES.LOADING && <p>loading...</p>}
+
+				{displayState.effects[0] != null && (
 					<EffectSettings
+						effectState={displayState.effects[0]}
 						state={state}
-						effectData={activeEffectData}
+						effectData={effects[displayState.effects[0].effect]}
 						setEffectConfig={setEffectConfig}
 					/>
 				)}

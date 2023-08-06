@@ -2,7 +2,10 @@ use educe::Educe;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{config::color::Color, db, effects::prelude::*};
+use crate::{
+	config::db,
+	effects::{config::color::Color, prelude::*},
+};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]

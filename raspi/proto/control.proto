@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package lighting;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+
+message Config {
+	float brightness = 1;
+	bool srgb = 2;
+}
+
+message Effects {
+	map<string, Effect> effects = 1;
+}
+
+message Effect {
+	string name = 1;
+	google.protobuf.Struct schema = 2;
+	google.protobuf.Struct default_config = 3;
+}
+
+message Segments {
+	repeated Strip strips = 2;
+}
+
+message Strip {
+	uint32 offset = 1;
+	repeated Segment segments = 2;
+}
+
+message Segment {
+	string name = 1;
+	uint32 length = 2;
+	bool reversed = 3;
+}
+
+message Presets {
+	map<string, DisplayState> presets = 1;
+}
+
+message DisplayState {
+	repeated DisplayStateEffect effects = 1;
+	repeated DisplayStateStrip strips = 2;
+}
+
+message DisplayStateStrip {
+	repeated uint32 segments = 1;
+}
+
+message DisplayStateEffect {
+	string effect = 1;
+	google.protobuf.Struct config = 2;
+}
+
+service Controller {
+	rpc GetConfig (google.protobuf.Empty) returns (Config);
+	rpc SetConfig (Config) returns (Config);
+
+	rpc ListEffects (google.protobuf.Empty) returns (Effects);
+
+	rpc ListSegments (google.protobuf.Empty) returns (Segments);
+	rpc SetSegments (SetSegmentsRequest) returns (Segments);
+
+	// TODO
+	// rpc ListGroups
+
+	rpc ListPresets (google.protobuf.Empty) returns (Presets);
+	rpc SetPreset (SetPresetRequest) returns (DisplayState);
+	rpc DeletePreset (DeletePresetRequest) returns (google.protobuf.Empty);
+	rpc LoadPreset (LoadPresetRequest) returns (DisplayState);
+	rpc SavePreset (SavePresetRequest) returns (DisplayState);
+
+	rpc GetState (google.protobuf.Empty) returns (DisplayState);
+	rpc SetState (SetStateRequest) returns (DisplayState);
+	// rpc SetSegmentState (SetSegmentStateRequest) returns (DisplayState);
+
+	rpc StreamState (google.protobuf.Empty) returns (stream DisplayState);
+}
+
+message SetSegmentsRequest {
+	Segments segments = 1;
+}
+
+message LoadPresetRequest {
+	string name = 1;
+}
+
+message SavePresetRequest {
+	string name = 1;
+}
+
+message SetPresetRequest {
+	string name = 1;
+	DisplayState data = 2;
+}
+
+message DeletePresetRequest {
+	string name = 1;
+}
+
+message SetStateRequest {
+	DisplayState state = 2;
+}
+
+//message SetSegmentStateRequest {
+//	DisplayStateEffect effect = 1;
+//	repeated DisplayStateStrip strips = 2;
+//}

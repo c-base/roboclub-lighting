@@ -1,13 +1,11 @@
 use educe::Educe;
-use rand::{prelude::*, random};
+use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{
-	config::color::ColorGradient,
-	controller::Controller,
-	db,
-	effects::{config::color::ColorConfig, prelude, prelude::*, Effect},
+	config::db,
+	effects::{config::color::ColorGradient, prelude::*},
 };
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
@@ -62,9 +60,9 @@ impl FlashRainbowRandom {
 	fn run(&mut self, ctrl: &mut impl LedController) {
 		let color = self.config.colors.random();
 		let start = std::time::Instant::now();
-		let mut views = ctrl.views_mut();
+		let views = ctrl.views_mut();
 
-		let [mut s0, mut s1, mut s2, mut s3, mut s4, mut s5, mut s6, mut s7, mut s8, mut s9, mut s10, mut s11, mut s12, mut s13, s14] =
+		let [mut s0, mut s1, mut s2, mut s3, mut s4, mut s5, mut s6, mut s7, mut s8, mut s9, mut s10, mut s11, mut s12, mut s13, mut s14] =
 			views.sections;
 
 		let mut slices = if self.config.height_slice {
@@ -75,6 +73,7 @@ impl FlashRainbowRandom {
 				vec![&mut s3, &mut s12, &mut s13],
 				vec![&mut s8, &mut s9, &mut s10],
 				vec![&mut s11],
+				vec![&mut s14],
 			]
 		} else {
 			vec![
@@ -88,6 +87,7 @@ impl FlashRainbowRandom {
 				vec![&mut s8, &mut s9, &mut s10],
 				vec![&mut s11],
 				vec![&mut s12, &mut s13],
+				vec![&mut s14],
 			]
 		};
 

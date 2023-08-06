@@ -5,7 +5,6 @@ pub use palette::{IntoColor, Mix, Shade};
 pub use crate::{
 	color::*,
 	controller::{Controller, LedController},
-	effect,
 	effects::Effect,
 };
 
@@ -15,49 +14,11 @@ pub fn sleep_ms(ms: u64) {
 	std::thread::sleep(Duration::from_millis(ms));
 }
 
-// #[derive(Debug)]
-// pub enum Error {
-// 	Serde(serde_json::Error),
-// 	Other(String),
-// }
-//
-// impl From<serde_json::Error> for Error {
-// 	fn from(err: serde_json::Error) -> Self {
-// 		Error::Serde(err)
-// 	}
-// }
-//
-// impl Display for Error {
-// 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-// 		use Error::*;
-// 		match self {
-// 			Serde(err) => {
-// 				write!(f, "serde error: ")?;
-// 				Display::fmt(err, f)
-// 			}
-// 			Other(str) => {
-// 				write!(f, "other error: {}", str)
-// 			}
-// 		}
-// 	}
-// }
-//
-// impl std::error::Error for Error {
-// 	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-// 		match self {
-// 			Error::Serde(err) => Some(err),
-// 			_ => None,
-// 		}
-// 	}
-// }
-//
-// pub type Result<T> = std::result::Result<T, Error>;
-
 fn fade(val: f32, fade_value: f32) -> f32 {
 	if val <= 10.0 {
 		0.0
 	} else {
-		(val - (val * fade_value / 256.0))
+		val - (val * fade_value / 256.0)
 	}
 }
 
@@ -78,7 +39,8 @@ pub fn set_all(ctrl: &mut impl LedController, color: &Rgba) {
 	for i in 0..data.len() {
 		data[i] = color.clone();
 	}
-	ctrl.write_state();
+	todo!()
+	// ctrl.write_state();
 }
 
 // pub fn darken_rgb(rgb: [u8; 3], factor: f32) -> [u8; 3] {

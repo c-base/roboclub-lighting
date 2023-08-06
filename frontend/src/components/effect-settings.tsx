@@ -3,23 +3,25 @@ import { useMemo } from "preact/hooks";
 import clsx from "clsx";
 import { Sliders } from "preact-feather";
 import { dset } from "dset";
+import { JSX } from "preact";
 
-import { EffectData } from "../state/api";
-import { STATES } from "../state/state";
+import { DisplayStateEffect, Effect, EffectConfig } from "../state/api";
+import { ALL_STATES, STATES } from "../state/state";
 
 import styles from "./effect-settings.module.css";
 import { prettyName } from "../util/pretty-names";
 import { ColorPicker, MultiColorPicker } from "./color-picker";
-import { JSX } from "preact";
 
 export function EffectSettings({
 	effectData,
+	effectState,
 	setEffectConfig,
 	state,
 }: {
-	effectData: EffectData;
-	setEffectConfig: (config: Record<string, any>) => void;
-	state: string;
+	effectData: Effect;
+	effectState: DisplayStateEffect;
+	setEffectConfig: (idx: number, effect: string, config: EffectConfig) => void;
+	state: ALL_STATES;
 }) {
 	if (state === STATES.LOADING) {
 		return <p>loading...</p>;
@@ -30,9 +32,9 @@ export function EffectSettings({
 	}
 
 	function patchAndUpdateConfig(field, value) {
-		let config: { [name: string]: any } = JSON.parse(JSON.stringify(effectData.config));
+		let config: { [name: string]: any } = JSON.parse(JSON.stringify(effectState.config));
 		dset(config, field, value);
-		setEffectConfig(config);
+		setEffectConfig(0, effectState.effect, config);
 	}
 
 	return (
@@ -41,7 +43,7 @@ export function EffectSettings({
 				<Sliders /> &nbsp; {prettyName(effectData.name)}
 			</h2>
 			<Settings
-				config={effectData.config}
+				config={effectState.config}
 				schema={effectData.schema}
 				update={patchAndUpdateConfig}
 			/>

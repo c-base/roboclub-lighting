@@ -10,3 +10,8 @@ max_line_length = 100
 [*.toml]
 indent_style = space
 indent_size = 2
+
+[raspi/.config/*.json]
+indent_style = space
+indent_size = 2
+

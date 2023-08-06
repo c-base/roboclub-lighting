@@ -1,10 +1,9 @@
 use educe::Educe;
-use palette::IntoColor;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{controller::Controller, db, effects::prelude::*};
+use crate::{config::db, effects::prelude::*};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
@@ -88,7 +87,7 @@ impl Meteors {
 			for j in 0..self.config.meteor_size.min(*counter) {
 				if (*counter - j < leds.len()) && (*counter + 1 - j != 0) {
 					leds[*counter - j] = Hsv::new(
-						((self.offset as f32 + j as f32 + *counter as f32) % 360.0),
+						(self.offset as f32 + j as f32 + *counter as f32) % 360.0,
 						1.0,
 						1.0,
 					)
@@ -98,7 +97,7 @@ impl Meteors {
 
 			*counter += 1;
 		}
-		self.offset.wrapping_add(2);
+		self.offset = self.offset.wrapping_add(2);
 		ctrl.write_state();
 		sleep_ms(self.config.speed_delay);
 	}

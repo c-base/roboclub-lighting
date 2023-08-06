@@ -2,72 +2,66 @@
 name = "robolab"
 version = "0.1.0"
 authors = ["Leah <github.leah@hrmny.sh>"]
-edition = "2018"
+edition = "2021"
 
 [profile.release.package.robolab]
 debug = true
 
 [patch.crates-io]
 serial-ws2812 = { path = "../_pkg/serial-ws2812" }
+effect-derive = { path = "./effect-derive" }
 
 [dependencies]
+# local / vendored
+effect-derive = { version = "0.0.1" }
 serial-ws2812 = { version = "0.0.1", features = ["tokio"] }
 
-axum = "0.6.19"
+# external
+axum = { version = "0.6.19", features = ["ws", "headers", "macros"] }
 bytemuck = { version = "1.13.1", features = ["min_const_generics"] }
 color-eyre = "0.6.2"
 educe = "0.4"
 eyre = "0.6.8"
-jsonrpc-core = "18"
-jsonrpc-pubsub = "18"
-jsonrpc-tcp-server = "18"
-jsonrpc-ws-server = "18"
+futures = "0.3"
+headers = "0.3"
+jsonrpsee = { version = "0.19.0", features = ["server", "macros"] }
+palette = { version = "0.6", features = ["random", "serializing"] }
+prost = "0.11.9"
+prost-types = "0.11.9"
+prost-wkt = "0.4.2"
+prost-wkt-types = "0.4.2"
 rand = "0.8"
-rocket = "0.4"
-rocket_contrib = "0.4"
-rocket_cors = "0.5"
 serde = "1"
+serde-transcode = "1.1.1"
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 sled = "0.34"
 tokio = { version = "1.29.1", features = ["full"] }
+tokio-stream = { version = "0.1.14", features = ["sync"] }
+tokio-tungstenite = "0.19"
+tonic = "0.9"
+tonic-types = "0.9.2"
+tonic-web = "0.9.2"
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.4.0", features = ["fs", "trace", "cors"] }
 tracing = "0.1"
+tracing-error = "0.2.0"
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 utoipa = { version = "3.4.3", features = ["axum_extras", "debug"] }
 validator = { version = "0.16.1", features = ["derive"] }
 
-[dependencies.palette]
-features = ["random", "serializing"]
-version = "0.6"
-
-[dependencies.serde_json]
-features = ["preserve_order", "float_roundtrip"]
-version = "1"
-
-[dependencies.effect-derive]
-path = "./effect-derive"
+[build-dependencies]
+prost-build = "0.11"
+prost-wkt-build = "0.4"
+tonic-build = "0.9"
 
 #[dependencies.pipewire]
 #version = "0.5.0"
 
-#[dependencies.futures]
-#version = "0.3"
-#default-features = false
-#features = ["alloc"]
-#
-#[dependencies.tokio]
-#version = "1.0.2"
-#features = [ "rt-multi-thread", "sync", "signal" ]
-#
-#[dependencies.warp]
-#version = "*"
-#git = "https://github.com/seanmonstar/warp"
-
+#axum-extra = { version = "0.7.5", features = ["typed-routing"] }
 #nb = "1.0.0"
 #smart-leds = "0.3.0"
 #embedded-hal = "0.2.3"
-#ws2812-timer-delay = "0.3.0"
-#ws2812-spi = { version = "0.3.0", features = [ "mosi_idle_high" ] }
-#ws2818-rgb-led-spi-driver = { version = "1.0.0", path = "./_pkg/ws28xx" }
 
 #cpal = "0.12.1"
 #libpulse-binding = { version = "2.0", default-features = false , features = ["pa_v12"] }

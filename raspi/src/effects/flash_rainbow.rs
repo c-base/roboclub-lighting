@@ -3,10 +3,8 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{
-	config::color::ColorGradient,
-	controller::Controller,
-	db,
-	effects::{config::color::ColorConfig, prelude, prelude::*, Effect},
+	config::db,
+	effects::{config::color::ColorGradient, prelude::*},
 };
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 pub use effect_derive::Schema;
 
 // enum SchemaType {}

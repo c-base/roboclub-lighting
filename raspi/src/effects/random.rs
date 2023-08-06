@@ -1,9 +1,12 @@
 use educe::Educe;
-use palette::Saturate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{config::color::Color, controller::Controller, db, effects::prelude::*, noise};
+use crate::{
+	config::db,
+	effects::{config::color::Color, prelude::*},
+	noise,
+};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
@@ -73,7 +76,7 @@ impl RandomNoise {
 				// let num = rand.gen_range(0, 55);
 				// let num = rand.gen_range(0.0, 1.0);
 				let num = 0.0;
-				let num = (noise::simplex3d(i as f32 / self.config.size, num as f32, self.counter));
+				let num = noise::simplex3d(i as f32 / self.config.size, num as f32, self.counter);
 				// let num = if num > 0 {
 				// 	self.config.brightness / num
 				// } else {

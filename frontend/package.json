@@ -6,7 +6,9 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "tsc && vite build --outDir ../raspi/public",
+		"build": "pnpm generate && tsc && vite build --outDir ../raspi/public",
+		"generate": "protoc -I=../raspi/proto control.proto --js_out=import_style=commonjs:./src/proto --grpc-web_out=import_style=typescript,mode=grpcwebtext:./src/proto",
+		"generate-ts": "protoc -I=../raspi/proto control.proto --ts_out ./src/proto",
 		"preview": "vite preview",
 		"prettier": "prettier --write ."
 	},
@@ -31,10 +33,16 @@
 	},
 	"dependencies": {
 		"@jaames/iro": "^5.5.2",
+		"@protobuf-ts/grpcweb-transport": "^2.9.1",
+		"@protobuf-ts/plugin": "^2.9.1",
+		"@protobuf-ts/runtime": "^2.9.1",
+		"@protobuf-ts/runtime-rpc": "^2.9.1",
 		"@xstate/fsm": "^1.6.5",
 		"clsx": "^1.2.1",
 		"dset": "^3.1.2",
 		"goober": "^2.1.13",
+		"google-protobuf": "^3.21.2",
+		"grpc-web": "^1.4.2",
 		"preact": "^10.16.0",
 		"preact-feather": "^4.2.1",
 		"preact-iso": "^2.3.1"
