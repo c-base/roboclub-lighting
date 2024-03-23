@@ -7,7 +7,7 @@ use utoipa::{
 	ToSchema,
 };
 
-pub use crate::effects::balls::balls;
+pub use crate::effects::{balls::balls, solid::solid};
 use crate::{config::WithConfig, controller::Section};
 
 pub mod balls;
@@ -24,7 +24,7 @@ pub mod prelude;
 // pub mod random;
 // pub mod schema;
 // pub mod snake;
-// pub mod solid;
+pub mod solid;
 // pub mod static_rainbow;
 
 pub trait EffectFactory: Send {
@@ -86,6 +86,7 @@ pub trait Effect: WithConfig<Config = serde_json::Value> + Send + Sync {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct EffectData {
+	pub id:             String,
 	pub name:           String,
 	pub schema:         Schema,
 	pub default_config: serde_json::Value,

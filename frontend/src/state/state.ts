@@ -61,11 +61,10 @@ type FailureEvent = {
 	error: any;
 };
 
-type SuccessEvent<DATA extends {} = {}> = { type: typeof MESSAGES.SUCCESS } & DATA;
+type SuccessEvent<DATA extends {} = {}> = { type: typeof MESSAGES.SUCCESS } & Partial<Context> &
+	DATA;
 
-type LoadAllSuccessEvent = {
-	type: typeof MESSAGES.SUCCESS;
-} & LoadAllResponse;
+type LoadAllSuccessEvent = SuccessEvent<LoadAllResponse>;
 
 type LoadAllResponse = {
 	config: Config;
@@ -83,7 +82,7 @@ type SetConfigEvent = {
 type SetEffectConfigEvent = {
 	type: typeof MESSAGES.SET_EFFECT_CONFIG;
 	idx: number;
-} & DisplayStateEffect;
+} & Pick<DisplayStateEffect, "effectId" | "config">;
 
 type ConfigSuccessEvent = SuccessEvent<{ config: Config }>;
 
@@ -153,7 +152,6 @@ export const machine = createMachine<
 		presets: {},
 		state: {
 			effects: [],
-			strips: [],
 		},
 	},
 	states: {
@@ -162,7 +160,7 @@ export const machine = createMachine<
 			on: {
 				[MESSAGES.SUCCESS]: {
 					target: STATES.LOADED,
-					actions: assign<Context, LoadAllSuccessEvent>((_, event) => event),
+					actions: assign((_, { type, ...rest }) => rest),
 				},
 				[MESSAGES.FAILURE]: STATES.ERROR,
 			},
@@ -171,20 +169,19 @@ export const machine = createMachine<
 			on: {
 				[MESSAGES.SET_CONFIG]: {
 					target: STATES.SET_CONFIG,
-					actions: assign<Context, SetConfigEvent>({
+					actions: assign({
 						config: (_, event) => event.config,
 					}),
 				},
 				[MESSAGES.SET_EFFECT_CONFIG]: {
 					target: STATES.SET_EFFECT_CONFIG,
-					actions: assign<Context, SetEffectConfigEvent>({
-						state: (ctx, { idx, effect, config }) => {
+					actions: assign({
+						state: (ctx, { idx, effectId, config }) => {
 							let state = {
 								effects: [...ctx.state.effects],
-								strips: ctx.state.strips,
 							} satisfies DisplayState;
 
-							state.effects[idx] = { effect, config };
+							state.effects[idx] = { ...state.effects[idx], effectId, config };
 
 							return state;
 						},
@@ -192,13 +189,13 @@ export const machine = createMachine<
 				},
 				[MESSAGES.SET_SEGMENTS]: {
 					target: STATES.SET_SEGMENTS,
-					actions: assign<Context, SetSegmentsEvent>({
+					actions: assign({
 						segments: (_, event) => event.segments,
 					}),
 				},
 				[MESSAGES.SET_PRESET]: {
 					target: STATES.SET_PRESET,
-					actions: assign<Context, SetPresetEvent>({
+					actions: assign({
 						presets: (ctx, event) => ({
 							...ctx.presets,
 							[event.name]: event.state,
@@ -207,13 +204,13 @@ export const machine = createMachine<
 				},
 				[MESSAGES.LOAD_PRESET]: {
 					target: STATES.LOAD_PRESET,
-					actions: assign<Context, LoadPresetEvent>({
-						state: (ctx, event) => ctx.presets[event.name],
+					actions: assign({
+						state: (ctx, event) => ctx.presets[event.name] ?? ctx.state,
 					}),
 				},
 				[MESSAGES.SAVE_PRESET]: {
 					target: STATES.SAVE_PRESET,
-					actions: assign<Context, SavePresetEvent>({
+					actions: assign({
 						presets: (ctx, event) => ({
 							...ctx.presets,
 							[event.name]: ctx.state,
@@ -222,7 +219,7 @@ export const machine = createMachine<
 				},
 				[MESSAGES.SET_STATE]: {
 					target: STATES.SET_STATE,
-					actions: assign<Context, SetStateEvent>({
+					actions: assign({
 						state: (_, event) => event.state,
 					}),
 				},
@@ -278,7 +275,7 @@ export const machine = createMachine<
 			},
 		},
 		[STATES.ERROR]: {
-			entry: (_, b) => console.error(b),
+			entry: (_, b) => (b.type == "FAILURE" ? console.error(b.error) : console.error(b)),
 			on: {
 				[MESSAGES.RETRY]: STATES.LOADING,
 			},
@@ -286,7 +283,7 @@ export const machine = createMachine<
 	},
 });
 
-export const actions: { [key: string]: ActionFunc<Context, any, any> } = {
+export const actions = {
 	loadAll: asyncAction<Context, EventObject, LoadAllSuccessEvent>({
 		promise: async () => {
 			let [config, effects, segments, presets, state] = await Promise.all([
@@ -311,13 +308,12 @@ export const actions: { [key: string]: ActionFunc<Context, any, any> } = {
 		DisplayStateSuccessEvent,
 		DisplayState
 	>({
-		promise: (ctx, { idx, effect, config }) => {
+		promise: (ctx, { idx, effectId, config }) => {
 			let state = {
 				effects: [...ctx.state.effects],
-				strips: ctx.state.strips,
 			} satisfies DisplayState;
 
-			state.effects[idx] = { effect, config };
+			state.effects[idx] = { ...state.effects[idx], effectId, config };
 
 			return setState(state);
 		},
@@ -343,4 +339,4 @@ export const actions: { [key: string]: ActionFunc<Context, any, any> } = {
 		promise: (_, { state }) => setState(state),
 		cb: (state) => ({ state }),
 	}),
-};
+} satisfies { [key: string]: ActionFunc<Context, any, any> };

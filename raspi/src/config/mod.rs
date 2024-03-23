@@ -1,7 +1,8 @@
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	fs::File,
 	io::{BufReader, BufWriter},
+	mem,
 	ops::{Deref, DerefMut},
 	path::{Path, PathBuf},
 };
@@ -78,6 +79,10 @@ impl<T: ConfigFile + Serialize + Default> Config<T> {
 	pub fn set(&mut self, val: T) {
 		self.inner = val;
 	}
+
+	pub fn replace(&mut self, val: T) -> T {
+		mem::replace(&mut self.inner, val)
+	}
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Educe)]
@@ -88,7 +93,10 @@ pub struct GlobalConfig {
 	#[educe(Default = false)]
 	pub as_srgb:    bool,
 
+	#[serde(default)]
 	pub strips: Vec<Strip>,
+	#[serde(default)]
+	pub groups: Vec<Group>,
 }
 
 impl ConfigFile for GlobalConfig {
@@ -111,6 +119,22 @@ pub struct Segment {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct Group {
+	pub id:          String,
+	pub name:        String,
+	pub segment_ids: HashSet<SegmentId>,
+}
+
+// strip index, segment index
+#[derive(
+	Copy, Clone, Debug, Default, Hash, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize,
+)]
+pub struct SegmentId {
+	pub strip_idx:   usize,
+	pub segment_idx: usize,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Presets(pub HashMap<String, DisplayState>);
 
@@ -122,8 +146,8 @@ impl ConfigFile for Presets {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DisplayState {
-	pub effects:  Vec<DisplayStateEffect>,
-	pub segments: Vec<Vec<usize>>,
+	#[serde(default)]
+	pub effects: Vec<DisplayStateEffect>,
 }
 
 impl ConfigFile for DisplayState {
@@ -134,6 +158,8 @@ impl ConfigFile for DisplayState {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DisplayStateEffect {
-	pub effect: String,
-	pub config: serde_json::Value,
+	pub effect_id:   String,
+	pub config:      serde_json::Value,
+	pub segment_ids: HashSet<SegmentId>,
+	pub group_ids:   HashSet<String>,
 }

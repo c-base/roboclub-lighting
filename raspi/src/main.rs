@@ -9,7 +9,7 @@ use eyre::Result;
 use robolab::{all_internal_effects, controller::Controller, grpc, http, runner::EffectRunner};
 use tracing::info;
 
-pub const APP_NAME: &'static str = "roboclub-led-controller";
+pub const APP_NAME: &str = "roboclub-led-controller";
 
 fn install_tracing() {
 	use tracing_error::ErrorLayer;

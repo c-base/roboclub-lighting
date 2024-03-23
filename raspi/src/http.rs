@@ -5,17 +5,16 @@ use std::{
 
 use axum::Router;
 use eyre::Result;
-use tower_http::{
-	cors::CorsLayer,
-	services::ServeDir,
-	trace::{DefaultMakeSpan, TraceLayer},
-};
+use tower_http::{cors::CorsLayer, services::ServeDir};
 
-use crate::runner::EffectRunner;
+use crate::{
+	grpc::{schema::controller_server::ControllerServer, MyController},
+	runner::EffectRunner,
+};
 
 #[derive(Clone)]
 struct AppState {
-	runner: Arc<Mutex<EffectRunner>>,
+	// runner: Arc<Mutex<EffectRunner>>,
 }
 //
 // // Make our own error that wraps `anyhow::Error`.
@@ -102,6 +101,11 @@ struct AppState {
 // async fn load_preset() {}
 
 pub async fn run(runner: Arc<Mutex<EffectRunner>>) -> Result<()> {
+	let controller = MyController {
+		runner: runner.clone(),
+	};
+	let controller = ControllerServer::new(controller);
+
 	let app = Router::new()
 		.fallback_service(ServeDir::new("public/").append_index_html_on_directories(true))
 		// .route("/api/config", get(config).put(set_config))
@@ -113,11 +117,9 @@ pub async fn run(runner: Arc<Mutex<EffectRunner>>) -> Result<()> {
 		// .route("/api/presets/:preset", get(preset).put(set_preset))
 		// .route("/ws", get(ws_handler))
 		.layer(CorsLayer::permissive())
-		.layer(
-			TraceLayer::new_for_http()
-				.make_span_with(DefaultMakeSpan::default().include_headers(true)),
-		)
-		.with_state(AppState { runner });
+		// .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default()))
+		.route_service("/api/grpc", tonic_web::enable(controller))
+		.with_state(AppState {});
 
 	let addr = SocketAddr::from(([0, 0, 0, 0], 4444));
 	tracing::debug!("listening on {}", addr);

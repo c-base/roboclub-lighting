@@ -15,13 +15,15 @@ message Effects {
 }
 
 message Effect {
-	string name = 1;
-	google.protobuf.Struct schema = 2;
-	google.protobuf.Struct default_config = 3;
+	string id = 1;
+	string name = 2;
+	google.protobuf.Struct schema = 3;
+	google.protobuf.Struct default_config = 4;
 }
 
 message Segments {
-	repeated Strip strips = 2;
+	repeated Strip strips = 1;
+	repeated Group groups = 2;
 }
 
 message Strip {
@@ -35,35 +37,43 @@ message Segment {
 	bool reversed = 3;
 }
 
+message Group {
+	string id = 1;
+	string name = 2;
+	repeated SegmentId segment_ids = 3;
+}
+
+message SegmentId {
+	uint32 strip = 1;
+	uint32 segment = 2;
+}
+
 message Presets {
 	map<string, DisplayState> presets = 1;
 }
 
 message DisplayState {
 	repeated DisplayStateEffect effects = 1;
-	repeated DisplayStateStrip strips = 2;
-}
-
-message DisplayStateStrip {
-	repeated uint32 segments = 1;
 }
 
 message DisplayStateEffect {
-	string effect = 1;
+	string effect_id = 1;
 	google.protobuf.Struct config = 2;
+	repeated SegmentId segment_ids = 3;
+	repeated string group_ids = 4;
 }
 
 service Controller {
 	rpc GetConfig (google.protobuf.Empty) returns (Config);
 	rpc SetConfig (Config) returns (Config);
 
+	// Get a list of all segments and groups.
+	rpc ListSegments (google.protobuf.Empty) returns (SegmentsResponse);
+	rpc SetSegments (SetSegmentsRequest) returns (SegmentsResponse);
+	rpc ListGroups (google.protobuf.Empty) returns (GroupsResponse);
+	rpc SetGroups (SetGroupsRequest) returns (GroupsResponse);
+
 	rpc ListEffects (google.protobuf.Empty) returns (Effects);
-
-	rpc ListSegments (google.protobuf.Empty) returns (Segments);
-	rpc SetSegments (SetSegmentsRequest) returns (Segments);
-
-	// TODO
-	// rpc ListGroups
 
 	rpc ListPresets (google.protobuf.Empty) returns (Presets);
 	rpc SetPreset (SetPresetRequest) returns (DisplayState);
@@ -73,13 +83,25 @@ service Controller {
 
 	rpc GetState (google.protobuf.Empty) returns (DisplayState);
 	rpc SetState (SetStateRequest) returns (DisplayState);
-	// rpc SetSegmentState (SetSegmentStateRequest) returns (DisplayState);
+	rpc SetStateEffect (SetStateEffectRequest) returns (DisplayState);
 
 	rpc StreamState (google.protobuf.Empty) returns (stream DisplayState);
 }
 
+message SegmentsResponse {
+	repeated Strip strips = 1;
+}
+
 message SetSegmentsRequest {
-	Segments segments = 1;
+	repeated Strip strips = 1;
+}
+
+message GroupsResponse {
+	repeated Group groups = 1;
+}
+
+message SetGroupsRequest {
+	repeated Group groups = 1;
 }
 
 message LoadPresetRequest {
@@ -103,7 +125,7 @@ message SetStateRequest {
 	DisplayState state = 2;
 }
 
-//message SetSegmentStateRequest {
-//	DisplayStateEffect effect = 1;
-//	repeated DisplayStateStrip strips = 2;
-//}
+message SetStateEffectRequest {
+	uint32 index = 1;
+	DisplayStateEffect effect = 2;
+}

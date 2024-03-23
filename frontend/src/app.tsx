@@ -7,7 +7,7 @@ import { Sidebar } from "./components/sidebar";
 
 import styles from "./app.module.css";
 import { useCallback } from "preact/hooks";
-import { DisplayState, EffectConfig } from "./state/api.ts";
+import { DisplayState, DisplayStateEffect, EffectConfig } from "./state/api.ts";
 
 export function App() {
 	const [
@@ -81,20 +81,23 @@ export function App() {
 				name,
 			});
 		},
-		[send]
+		[send],
 	);
 
 	let setEffectConfig = useCallback(
-		(idx: number, effect: string, config: EffectConfig) => {
+		(idx: number, effectId: string, config: EffectConfig) => {
 			send({
 				type: MESSAGES.SET_EFFECT_CONFIG,
 				idx,
-				effect,
+				effectId,
 				config,
 			});
 		},
-		[send]
+		[send],
 	);
+
+	let effectState = displayState.effects[0]
+	let effectData = effectState ? effects[effectState.effectId] : undefined
 
 	return (
 		<LocationProvider>
@@ -115,14 +118,14 @@ export function App() {
 				)}
 				{state === STATES.LOADING && <p>loading...</p>}
 
-				{displayState.effects[0] != null && (
+				{effectState != null && effectData != null ? (
 					<EffectSettings
-						effectState={displayState.effects[0]}
+						effectState={effectState}
 						state={state}
-						effectData={effects[displayState.effects[0].effect]}
+						effectData={effectData}
 						setEffectConfig={setEffectConfig}
 					/>
-				)}
+				) : null}
 			</main>
 		</LocationProvider>
 	);

@@ -1,4 +1,13 @@
-#[build]
+[build]
+# linker = "rust-lld"
+rustflags = [
+  "-Zshare-generics=y",
+  "-Zthreads=8",
+]
+
+[target.aarch64-apple-darwin]
+linker = "rust-lld"
+
 #target = "aarch64-unknown-linux-musl"
 
 [target.aarch64-unknown-linux-musl]

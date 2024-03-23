@@ -17,10 +17,14 @@
 		"jsxImportSource": "preact",
 
 		/* Linting */
-		//	"strict": true,
-//		"noUnusedLocals": true,
-//		"noUnusedParameters": true,
+//		"strict": true,
+		//		"noUnusedLocals": true,
+		//		"noUnusedParameters": true,
 		"noFallthroughCasesInSwitch": true,
+		"strictNullChecks": true,
+
+		// not compatible with the generated protobuf code
+		//		"noUncheckedIndexedAccess": true,
 
 		"allowJs": true,
 		"checkJs": true,

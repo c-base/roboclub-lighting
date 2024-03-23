@@ -14,7 +14,7 @@ type ColorInputProps = {
 };
 
 export function ColorPicker({ value, onChange }: ColorInputProps) {
-	let el: MutableRef<HTMLDivElement> = useRef();
+	let el: MutableRef<HTMLDivElement | null> = useRef(null);
 	let colorPicker: MutableRef<iro.ColorPicker | null> = useRef(null);
 
 	useEffect(() => {
@@ -34,18 +34,19 @@ export function ColorPicker({ value, onChange }: ColorInputProps) {
 
 	useEffect(() => {
 		if (!colorPicker.current) return;
+		const pickerRef = colorPicker.current;
 
 		function callback(color: iro.Color) {
 			let { h, s, v } = color.hsv;
 			onChange({
-				hue: h,
-				saturation: s / 100.0,
-				value: v / 100.0,
+				hue: h!,
+				saturation: s! / 100.0,
+				value: v! / 100.0,
 			});
 		}
 
-		colorPicker.current.on("color:change", callback);
-		return () => colorPicker.current.off("color:change", callback);
+		pickerRef.on("color:change", callback);
+		return () => pickerRef.off("color:change", callback);
 	}, [colorPicker.current, onChange]);
 
 	useEffect(() => {
@@ -67,7 +68,7 @@ type MultiColorInputProps = {
 };
 
 export function MultiColorPicker({ values, onChange }: MultiColorInputProps) {
-	let el: MutableRef<HTMLDivElement> = useRef();
+	let el: MutableRef<HTMLDivElement | null> = useRef(null);
 	let colorPicker: MutableRef<iro.ColorPicker | null> = useRef(null);
 
 	useEffect(() => {
@@ -87,18 +88,19 @@ export function MultiColorPicker({ values, onChange }: MultiColorInputProps) {
 
 	useEffect(() => {
 		if (!colorPicker.current) return;
+		const pickerRef = colorPicker.current;
 
 		function callback() {
-			let colors = colorPicker.current.colors.map(({ hsv: { h, s, v } }) => ({
-				hue: h,
-				saturation: s / 100.0,
-				value: v / 100.0,
+			let colors = pickerRef.colors.map(({ hsv: { h, s, v } }) => ({
+				hue: h!,
+				saturation: s! / 100.0,
+				value: v! / 100.0,
 			}));
 			onChange(colors);
 		}
 
-		colorPicker.current.on("color:change", callback);
-		return () => colorPicker.current.off("color:change", callback);
+		pickerRef.on("color:change", callback);
+		return () => pickerRef.off("color:change", callback);
 	}, [colorPicker.current, onChange]);
 
 	useEffect(() => {
@@ -107,10 +109,10 @@ export function MultiColorPicker({ values, onChange }: MultiColorInputProps) {
 		colorPicker.current.colors.map(
 			(color, i) =>
 				(color.hsv = {
-					h: values[i].hue,
-					s: values[i].saturation * 100.0,
-					v: values[i].value * 100.0,
-				})
+					h: values[i]?.hue,
+					s: (values[i]?.saturation ?? 0) * 100.0,
+					v: (values[i]?.value ?? 0) * 100.0,
+				}),
 		);
 	}, [colorPicker.current, values]);
 

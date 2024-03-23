@@ -22,14 +22,14 @@ type ActionEvent<TEvent extends EventObject> =
 export type ActionFunc<
 	TContext extends object,
 	TEvent extends EventObject,
-	TEventOut extends EventObject
+	TEventOut extends EventObject,
 > = (context: TContext, event: TEvent, send: SendFunc<TEventOut>) => void;
 
 export function asyncAction<
 	TContext extends object,
 	TEvent extends EventObject,
 	TEventOut extends EventObject,
-	TResult extends any = Omit<TEventOut, "type">
+	TResult extends any = Omit<TEventOut, "type">,
 >({
 	promise,
 	cb = (d) => d as any,
@@ -51,12 +51,12 @@ export function asyncAction<
 export function useMachine<
 	TContext extends object,
 	TEvent extends EventObject,
-	TState extends Typestate<TContext>
+	TState extends Typestate<TContext>,
 >(
 	machineInit: StateMachine.Machine<TContext, TEvent, TState>,
 	actions: {
 		[key: string]: (context: TContext, event: TEvent, send: SendFunc<TEvent>) => void;
-	}
+	},
 ): [StateMachine.State<TContext, TEvent, TState>, SendFunc<TEvent>] {
 	const machine = useMemo(() => machineInit, []);
 
@@ -65,7 +65,7 @@ export function useMachine<
 	function executeActions(
 		state: StateMachine.State<TContext, TEvent, TState>,
 		event: TEvent,
-		send: SendFunc<TEvent>
+		send: SendFunc<TEvent>,
 	) {
 		state.actions.forEach(({ type, exec }) => {
 			if (typeof exec === "function") {
@@ -81,22 +81,22 @@ export function useMachine<
 	}
 
 	let send = useCallback(
-		(event) => {
+		(event: TEvent) => {
 			console.log("[fsm] event", event);
 			setState((state) => {
 				let nextState = machine.transition(state, event);
-				if (state.changed == null || state.changed) {
+				if (nextState.changed == null || nextState.changed) {
 					console.group("[fsm] state changed");
-					console.log("state", state.value);
-					console.log("context", state.context);
-					console.log("actions", state.actions);
+					console.log("state", nextState.value);
+					console.log("context", nextState.context);
+					console.log("actions", nextState.actions);
 					console.groupEnd();
 				}
 				executeActions(nextState, event, send);
 				return nextState;
 			});
 		},
-		[setState]
+		[setState],
 	);
 
 	useEffect(() => {

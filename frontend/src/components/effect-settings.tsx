@@ -1,4 +1,4 @@
-import { JSONSchema7 } from "json-schema";
+import { JSONSchema7, JSONSchema7Definition } from "json-schema";
 import { useMemo } from "preact/hooks";
 import clsx from "clsx";
 import { Sliders } from "preact-feather";
@@ -31,10 +31,10 @@ export function EffectSettings({
 		return <p>something went wrong</p>;
 	}
 
-	function patchAndUpdateConfig(field, value) {
+	function patchAndUpdateConfig(field: string, value: any) {
 		let config: { [name: string]: any } = JSON.parse(JSON.stringify(effectState.config));
 		dset(config, field, value);
-		setEffectConfig(0, effectState.effect, config);
+		setEffectConfig(0, effectState.effectId, config);
 	}
 
 	return (
@@ -90,60 +90,67 @@ function Settings({
 }
 
 type DefinitionMap = {
-	[k: string]: JSONSchema7;
+	[k: string]: JSONSchema7Definition;
 };
 
 function createFields(
 	config: Record<string, any>,
 	properties: DefinitionMap,
 	definitions: DefinitionMap,
-	prefix = []
+	prefix: string[] = [],
 ): Field[] {
 	return Object.keys(config).flatMap((name) => {
-		let propertySchema = properties[name];
+		let propertySchema = properties[name] ?? null;
 		if (typeof propertySchema === "boolean") {
-			propertySchema = null;
+			propertySchema = {};
 		}
 
-		if (typeof config[name] === "object") {
-			if (typeof propertySchema["$ref"] === "string") {
-				let ref = propertySchema["$ref"];
-				let definition = ref.substring("#/components/schemas/".length);
+		if (
+			typeof config[name] === "object" &&
+			propertySchema != null &&
+			typeof propertySchema["$ref"] === "string"
+		) {
+			let ref = propertySchema["$ref"];
+			let definitionName = ref.substring("#/components/schemas/".length);
 
-				if (definition === "Color") {
-					return {
-						name,
-						field: [...prefix, name].join("."),
-						value: config[name],
-						schema: null,
-						custom: "color",
-					};
-				}
-
-				if (definition === "ColorGradient") {
-					return {
-						name,
-						field: [...prefix, name].join("."),
-						value: config[name],
-						schema: null,
-						custom: "color_gradient",
-					};
-				}
-
-				return createFields(
-					config[name],
-					definitions[ref.substring("#/definitions/".length)].properties as any,
-					definitions,
-					prefix.concat(name)
-				);
+			if (definitionName === "Color") {
+				return {
+					name,
+					field: [...prefix, name].join("."),
+					value: config[name],
+					schema: null,
+					custom: "color",
+				};
 			}
+
+			if (definitionName === "ColorGradient") {
+				return {
+					name,
+					field: [...prefix, name].join("."),
+					value: config[name],
+					schema: null,
+					custom: "color_gradient",
+				};
+			}
+
+			let definition = definitions[ref.substring("#/definitions/".length)] ?? {};
+			if (typeof definition === "boolean") {
+				definition = {};
+			}
+
+			return createFields(
+				config[name],
+				definition.properties ?? {},
+				definitions,
+				prefix.concat(name),
+			);
 		}
 
 		return {
 			name: name,
 			field: [...prefix, name].join("."),
 			value: config[name],
-			schema: propertySchema as JSONSchema7 | null,
+			schema: propertySchema,
 			custom: null,
 		};
 	});
@@ -215,9 +222,9 @@ function Setting({ field, onChange }: { field: Field; onChange: (value: any) => 
 		label = label + " (invalid schema)";
 	}
 
-	let inputType = getInputType(field.schema);
-	let value = readableValue(field.schema, field.value);
-	let attrs = inputAttributes(field.schema);
+	let inputType = getInputType(field.schema ?? {});
+	let value = readableValue(field.schema ?? {}, field.value);
+	let attrs = inputAttributes(field.schema ?? {});
 
 	return (
 		<fieldset class={clsx({ error: field.schema === null })}>
@@ -227,7 +234,7 @@ function Setting({ field, onChange }: { field: Field; onChange: (value: any) => 
 				disabled={field.schema === null}
 				value={value}
 				checked={inputType === "checkbox" && value}
-				onChange={(e) => onChange(getValue(field.schema, e.currentTarget))}
+				onChange={(e) => onChange(getValue(field.schema ?? {}, e.currentTarget))}
 				{...attrs}
 			/>
 		</fieldset>

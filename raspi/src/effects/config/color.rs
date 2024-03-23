@@ -17,7 +17,7 @@ pub struct Color {
 
 impl Color {
 	pub fn value(&self) -> Hsv {
-		self.value.clone()
+		self.value
 	}
 }
 

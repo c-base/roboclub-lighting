@@ -4,7 +4,7 @@ use eyre::{Result, WrapErr};
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::{debug, error};
 
-pub const CONFIG_KEY: &'static str = "config";
+pub const CONFIG_KEY: &str = "config";
 
 pub fn save_json<T: Serialize + Debug, K: AsRef<[u8]>>(
 	db: &mut sled::Tree,
@@ -30,8 +30,8 @@ pub fn load_json<T: DeserializeOwned, K: AsRef<[u8]>>(
 		}
 	};
 
-	let value = serde_json::from_slice(&*vec)?;
-	return Ok(value);
+	let value = serde_json::from_slice(&vec)?;
+	Ok(value)
 }
 
 pub fn save_config<T: Serialize + Debug>(db: &mut sled::Tree, config: &T) -> Result<()> {

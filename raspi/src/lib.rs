@@ -34,6 +34,7 @@ pub fn all_internal_effects() -> Result<HashMap<String, Box<dyn EffectFactory>>>
 	use effects::*;
 
 	add_effect(&mut effect_map, "balls", balls)?;
+	add_effect(&mut effect_map, "solid", solid)?;
 
 	// add_effect(&mut effect_map, db, "explosions", |db| Explosions::new(db))?;
 	// add_effect(&mut effect_map, db, "flash_rainbow", |db| {

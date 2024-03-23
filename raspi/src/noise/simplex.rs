@@ -56,17 +56,11 @@ const PERM: [usize; 512] = [
 // }
 
 fn dot(g: [i32; 3], x: f32, y: f32, z: f32) -> f32 {
-	return g[0] as f32 * x + g[1] as f32 * y + g[2] as f32 * z;
+	g[0] as f32 * x + g[1] as f32 * y + g[2] as f32 * z
 }
 
 // 3D simplex noise
 pub fn simplex3d(xin: f32, yin: f32, zin: f32) -> f32 {
-	// Noise contributions from the four corners
-	let n0;
-	let n1;
-	let n2;
-	let n3;
-
 	// Skew the input space to determine which simplex cell we're in
 	let f3 = 1.0 / 3.0;
 	let s = (xin + yin + zin) * f3; // Very nice and simple skew factor for 3D
@@ -176,35 +170,35 @@ pub fn simplex3d(xin: f32, yin: f32, zin: f32) -> f32 {
 
 	// Calculate the contribution from the four corners
 	let mut t0 = 0.5 - x0 * x0 - y0 * y0 - z0 * z0;
-	if t0 < 0.0 {
-		n0 = 0.0;
+	let n0 = if t0 < 0.0 {
+		0.0
 	} else {
 		t0 *= t0;
-		n0 = t0 * t0 * dot(GRAD3[gi0], x0, y0, z0);
-	}
+		t0 * t0 * dot(GRAD3[gi0], x0, y0, z0)
+	};
 	let mut t1 = 0.5 - x1 * x1 - y1 * y1 - z1 * z1;
-	if t1 < 0.0 {
-		n1 = 0.0;
+	let n1 = if t1 < 0.0 {
+		0.0
 	} else {
 		t1 *= t1;
-		n1 = t1 * t1 * dot(GRAD3[gi1], x1, y1, z1);
-	}
+		t1 * t1 * dot(GRAD3[gi1], x1, y1, z1)
+	};
 	let mut t2 = 0.5 - x2 * x2 - y2 * y2 - z2 * z2;
-	if t2 < 0.0 {
-		n2 = 0.0;
+	let n2 = if t2 < 0.0 {
+		0.0
 	} else {
 		t2 *= t2;
-		n2 = t2 * t2 * dot(GRAD3[gi2], x2, y2, z2);
-	}
+		t2 * t2 * dot(GRAD3[gi2], x2, y2, z2)
+	};
 	let mut t3 = 0.5 - x3 * x3 - y3 * y3 - z3 * z3;
-	if t3 < 0.0 {
-		n3 = 0.0;
+	let n3 = if t3 < 0.0 {
+		0.0
 	} else {
 		t3 *= t3;
-		n3 = t3 * t3 * dot(GRAD3[gi3], x3, y3, z3);
-	}
+		t3 * t3 * dot(GRAD3[gi3], x3, y3, z3)
+	};
 
 	// Add contributions from each corner to get the final noise value.
 	// The result is scaled to stay just inside [-1,1]
-	return 32.0 * (n0 + n1 + n2 + n3);
+	32.0 * (n0 + n1 + n2 + n3)
 }

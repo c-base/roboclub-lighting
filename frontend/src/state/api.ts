@@ -1,12 +1,19 @@
 import { JSONSchema7 } from "json-schema";
-import { ControllerClient } from "../proto/ControlServiceClientPb.ts";
-import { Empty } from "google-protobuf/google/protobuf/empty_pb";
-import { Struct } from "google-protobuf/google/protobuf/struct_pb";
-import * as proto from "../proto/control_pb";
+import { GrpcWebFetchTransport } from "@protobuf-ts/grpcweb-transport";
+
+import { Empty } from "../proto/google/protobuf/empty";
+import { Struct } from "../proto/google/protobuf/struct";
+import { ControllerClient } from "../proto/control.client";
+import * as proto from "../proto/control";
+import { SegmentId } from "../proto/control";
 
 const HOSTNAME = import.meta.hot ? "localhost:4445" : ":4445";
 
-const client = new ControllerClient(HOSTNAME);
+const transport = new GrpcWebFetchTransport({
+	format: "binary",
+	baseUrl: `http://${HOSTNAME}`,
+});
+const client = new ControllerClient(transport);
 
 export type Effects = Record<string, Effect>;
 
@@ -40,60 +47,65 @@ export type Presets = Record<string, DisplayState>;
 
 export type DisplayState = {
 	effects: DisplayStateEffect[];
-	strips: number[][];
 };
 
 export type DisplayStateEffect = {
-	effect: string;
+	effectId: string;
 	config: EffectConfig;
+	segmentIds: proto.SegmentId[];
+	groupIds: string[];
 };
 
 function serializeDisplayState(state: DisplayState): proto.DisplayState {
-	const strips = state.strips.map((strip) => new proto.DisplayStateStrip().setSegmentsList(strip));
-	const effects = state.effects.map((effect) =>
-		new proto.DisplayStateEffect()
-			.setEffect(effect.effect)
-			.setConfig(Struct.fromJavaScript(effect.config))
+	const effects = state.effects.map(
+		(effect) =>
+			({
+				effectId: effect.effectId,
+				config: Struct.fromJson(effect.config),
+				segmentIds: effect.segmentIds,
+				groupIds: effect.groupIds,
+			}) satisfies proto.DisplayStateEffect,
 	);
 
-	return new proto.DisplayState().setStripsList(strips).setEffectsList(effects);
+	return {
+		effects,
+	};
 }
 
 function deserializeDisplayState(state: proto.DisplayState): DisplayState {
 	return {
-		effects: state.getEffectsList().map((effect) => ({
-			effect: effect.getEffect(),
-			config: effect.getConfig().toJavaScript(),
+		effects: state.effects.map((effect) => ({
+			effectId: effect.effectId,
+			config: Struct.toJson(effect.config!) as any,
+			segmentIds: effect.segmentIds,
+			groupIds: effect.groupIds,
 		})),
-		strips: state.getStripsList().map((strip) => strip.getSegmentsList()),
 	};
 }
 
-const EMPTY = new Empty();
+const EMPTY: Empty = {};
 
 export async function getConfig(): Promise<Config> {
-	const config = await client.getConfig(EMPTY, null);
+	const { response } = await client.getConfig(EMPTY);
 
-	return config.toObject();
+	return response;
 }
 
 export async function setConfig(config: Config): Promise<Config> {
-	const req = new proto.Config().setBrightness(config.brightness).setSrgb(config.srgb);
+	const { response } = await client.setConfig(config);
 
-	const serverConfig = await client.setConfig(req, null);
-
-	return serverConfig.toObject();
+	return response;
 }
 
 export async function listEffects(): Promise<Effects> {
-	const list = await client.listEffects(EMPTY, null);
+	const { response } = await client.listEffects(EMPTY);
 
 	const effects: Effects = {};
-	for (const [name, effect] of list.getEffectsMap().entries()) {
+	for (const [name, effect] of Object.entries(response.effects)) {
 		effects[name] = {
-			name: effect.getName(),
-			schema: effect.getSchema().toJavaScript(),
-			defaultConfig: effect.getDefaultConfig().toJavaScript(),
+			name: effect.name,
+			schema: Struct.toJson(effect.schema!) as any,
+			defaultConfig: Struct.toJson(effect.defaultConfig!) as any,
 		};
 	}
 
@@ -101,45 +113,25 @@ export async function listEffects(): Promise<Effects> {
 }
 
 export async function listSegments(): Promise<Strip[]> {
-	const list = await client.listSegments(EMPTY, null);
+	const { response } = await client.listSegments(EMPTY);
 
-	return list.getStripsList().map((strip) => ({
-		offset: strip.getOffset(),
-		segments: strip.getSegmentsList().map((segment) => segment.toObject()),
+	return response.strips.map((strip) => ({
+		offset: strip.offset,
+		segments: strip.segments.map((segment) => segment),
 	}));
 }
 
-export async function setSegments(segments: Strip[]): Promise<Strip[]> {
-	const strips = segments.map((strip) =>
-		new proto.Strip()
-			.setOffset(strip.offset)
-			.setSegmentsList(
-				strip.segments.map((segment) =>
-					new proto.Segment()
-						.setName(segment.name)
-						.setLength(segment.length)
-						.setReversed(segment.reversed)
-				)
-			)
-	);
+export async function setSegments(strips: Strip[]): Promise<Strip[]> {
+	const { response } = await client.setSegments({ strips });
 
-	const req = new proto.SetSegmentsRequest().setSegments(
-		new proto.Segments().setStripsList(strips)
-	);
-
-	const list = await client.setSegments(req, null);
-
-	return list.getStripsList().map((strip) => ({
-		offset: strip.getOffset(),
-		segments: strip.getSegmentsList().map((segment) => segment.toObject()),
-	}));
+	return response.strips;
 }
 
 export async function listPresets(): Promise<Record<string, DisplayState>> {
-	const list = await client.listPresets(EMPTY, null);
+	const { response } = await client.listPresets(EMPTY);
 
 	const presets: Record<string, DisplayState> = {};
-	for (const [name, state] of list.getPresetsMap().entries()) {
+	for (const [name, state] of Object.entries(response.presets)) {
 		presets[name] = deserializeDisplayState(state);
 	}
 
@@ -147,45 +139,42 @@ export async function listPresets(): Promise<Record<string, DisplayState>> {
 }
 
 export async function setPreset(name: string, state: DisplayState): Promise<DisplayState> {
-	const req = new proto.SetPresetRequest().setName(name).setData(serializeDisplayState(state));
+	const { response } = await client.setPreset({
+		name,
+		data: serializeDisplayState(state),
+	});
 
-	const serverState = await client.setPreset(req, null);
-
-	return deserializeDisplayState(serverState);
+	return deserializeDisplayState(response);
 }
 
 export async function loadPreset(name: string): Promise<DisplayState> {
-	const req = new proto.LoadPresetRequest().setName(name);
+	const { response } = await client.loadPreset({ name });
 
-	const state = await client.loadPreset(req, null);
-
-	return deserializeDisplayState(state);
+	return deserializeDisplayState(response);
 }
 
 export async function savePreset(name: string): Promise<DisplayState> {
-	const req = new proto.SavePresetRequest().setName(name);
+	const { response } = await client.savePreset({ name });
 
-	const state = await client.savePreset(req, null);
-
-	return deserializeDisplayState(state);
+	return deserializeDisplayState(response);
 }
 
 export async function getState(): Promise<DisplayState> {
-	const state = await client.getState(EMPTY, null);
+	const { response } = await client.getState(EMPTY);
 
-	return deserializeDisplayState(state);
+	return deserializeDisplayState(response);
 }
 
 export async function setState(state: DisplayState): Promise<DisplayState> {
-	const req = new proto.SetStateRequest().setState(serializeDisplayState(state));
+	const { response } = await client.setState({
+		state: serializeDisplayState(state),
+	});
 
-	const serverState = await client.setState(req, null);
-
-	return deserializeDisplayState(serverState);
+	return deserializeDisplayState(response);
 }
 
 export async function streamState(): Promise<DisplayState> {
-	const _ = client.streamState(EMPTY, null);
+	const _ = client.streamState(EMPTY);
 
 	throw "unimplemented";
 }

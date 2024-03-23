@@ -14,28 +14,30 @@ use tonic::{transport::Server, Request, Response, Status};
 use tracing::error;
 
 use crate::{
-	config::GlobalConfig,
 	grpc::schema::{
 		controller_server::{Controller, ControllerServer},
 		Config,
 		DeletePresetRequest,
 		DisplayState,
 		Effects,
+		GroupsResponse,
 		LoadPresetRequest,
 		Presets,
 		SavePresetRequest,
-		Segments,
+		SegmentsResponse,
+		SetGroupsRequest,
 		SetPresetRequest,
 		SetSegmentsRequest,
+		SetStateEffectRequest,
 		SetStateRequest,
 	},
-	runner::{EffectAPI, EffectRunner},
+	runner::{ApiConfig, EffectAPI, EffectRunner},
 };
 
 type DisplayStateStream = Pin<Box<dyn Stream<Item = Result<DisplayState, Status>> + Send>>;
 
 pub struct MyController {
-	runner: Arc<Mutex<EffectRunner>>,
+	pub(crate) runner: Arc<Mutex<EffectRunner>>,
 }
 
 fn wrap_err<E, D>(msg: D) -> impl FnOnce(E) -> Status
@@ -72,25 +74,20 @@ impl Controller for MyController {
 
 		let reply = Config {
 			brightness: cfg.brightness,
-			srgb:       cfg.as_srgb,
+			srgb:       cfg.srgb,
 		};
 
 		Ok(Response::new(reply))
 	}
 
-	#[tracing::instrument(skip(self))]
+	#[tracing::instrument(skip(self, request))]
 	async fn set_config(&self, request: Request<Config>) -> Result<Response<Config>, Status> {
 		let mut runner = self.runner.lock().unwrap();
-		let cfg = runner
-			.get_global_config()
-			.map_err(wrap_err("getting global config"))?;
-
 		let req = request.into_inner();
 
-		let cfg = GlobalConfig {
+		let cfg = ApiConfig {
 			brightness: req.brightness,
-			as_srgb:    req.srgb,
-			strips:     cfg.strips.clone(),
+			srgb:       req.srgb,
 		};
 
 		runner
@@ -98,6 +95,87 @@ impl Controller for MyController {
 			.map_err(wrap_err("setting global config"))?;
 
 		Ok(Response::new(req))
+	}
+
+	#[tracing::instrument(skip(self))]
+	async fn list_segments(&self, _: Request<()>) -> Result<Response<SegmentsResponse>, Status> {
+		let runner = self.runner.lock().unwrap();
+		let strips = runner
+			.list_segments()
+			.map_err(wrap_err("getting segments"))?;
+
+		let mut proto_strips = Vec::with_capacity(strips.len());
+		for strip in strips {
+			proto_strips.push(strip.try_into()?);
+		}
+
+		let reply = SegmentsResponse {
+			strips: proto_strips,
+		};
+
+		Ok(Response::new(reply))
+	}
+
+	#[tracing::instrument(skip(self, request))]
+	async fn set_segments(
+		&self,
+		request: Request<SetSegmentsRequest>,
+	) -> Result<Response<SegmentsResponse>, Status> {
+		let mut runner = self.runner.lock().unwrap();
+
+		let strips = request.into_inner().strips;
+
+		let mut config_strips = Vec::with_capacity(strips.len());
+		for strip in strips.clone() {
+			config_strips.push(strip.try_into()?);
+		}
+
+		runner
+			.set_segments(config_strips)
+			.map_err(wrap_err("setting segments"))?;
+
+		let reply = SegmentsResponse { strips };
+
+		Ok(Response::new(reply))
+	}
+
+	async fn list_groups(&self, _: Request<()>) -> Result<Response<GroupsResponse>, Status> {
+		let runner = self.runner.lock().unwrap();
+
+		let groups = runner.list_groups().map_err(wrap_err("getting groups"))?;
+
+		let mut proto_groups = Vec::with_capacity(groups.len());
+		for group in groups {
+			proto_groups.push(group.try_into()?);
+		}
+
+		let reply = GroupsResponse {
+			groups: proto_groups,
+		};
+
+		Ok(Response::new(reply))
+	}
+
+	#[tracing::instrument(skip(self, request))]
+	async fn set_groups(
+		&self,
+		request: Request<SetGroupsRequest>,
+	) -> Result<Response<GroupsResponse>, Status> {
+		let mut runner = self.runner.lock().unwrap();
+		let groups = request.into_inner().groups;
+
+		let mut config_groups = Vec::with_capacity(groups.len());
+		for group in groups.clone() {
+			config_groups.push(group.try_into()?);
+		}
+
+		runner
+			.set_groups(config_groups)
+			.map_err(wrap_err("setting groups"))?;
+
+		let reply = GroupsResponse { groups };
+
+		Ok(Response::new(reply))
 	}
 
 	#[tracing::instrument(skip(self))]
@@ -113,49 +191,7 @@ impl Controller for MyController {
 	}
 
 	#[tracing::instrument(skip(self))]
-	async fn list_segments(&self, _: Request<()>) -> Result<Response<Segments>, Status> {
-		let runner = self.runner.lock().unwrap();
-		let cfg = runner
-			.get_global_config()
-			.map_err(wrap_err("getting global config"))?;
-
-		let reply = cfg.strips.clone().try_into()?;
-
-		Ok(Response::new(reply))
-	}
-
-	#[tracing::instrument(skip(self))]
-	async fn set_segments(
-		&self,
-		request: Request<SetSegmentsRequest>,
-	) -> Result<Response<Segments>, Status> {
-		let mut runner = self.runner.lock().unwrap();
-		let cfg = runner
-			.get_global_config()
-			.map_err(wrap_err("getting global config"))?;
-
-		let strips = request
-			.into_inner()
-			.segments
-			.ok_or(missing_field("SetSegmentsRequest.segments"))?;
-
-		let cfg = GlobalConfig {
-			brightness: cfg.brightness,
-			as_srgb:    cfg.as_srgb,
-			strips:     strips.clone().try_into()?,
-		};
-
-		runner
-			.set_global_config(cfg)
-			.map_err(wrap_err("setting global config"))?;
-
-		let reply = strips;
-
-		Ok(Response::new(reply))
-	}
-
-	#[tracing::instrument(skip(self))]
-	async fn list_presets(&self, _: Request<()>) -> std::result::Result<Response<Presets>, Status> {
+	async fn list_presets(&self, _: Request<()>) -> Result<Response<Presets>, Status> {
 		let runner = self.runner.lock().unwrap();
 
 		let presets = runner
@@ -167,7 +203,7 @@ impl Controller for MyController {
 		Ok(Response::new(reply))
 	}
 
-	#[tracing::instrument(skip(self))]
+	#[tracing::instrument(skip(self, request))]
 	async fn set_preset(
 		&self,
 		request: Request<SetPresetRequest>,
@@ -184,15 +220,23 @@ impl Controller for MyController {
 		Ok(Response::new(data))
 	}
 
-	#[tracing::instrument(skip(self))]
+	#[tracing::instrument(skip(self, request))]
 	async fn delete_preset(
 		&self,
 		request: Request<DeletePresetRequest>,
-	) -> std::result::Result<Response<()>, Status> {
-		todo!()
+	) -> Result<Response<()>, Status> {
+		let mut runner = self.runner.lock().unwrap();
+
+		let DeletePresetRequest { name } = request.into_inner();
+
+		runner
+			.delete_preset(name)
+			.map_err(wrap_err("setting preset"))?;
+
+		Ok(Response::new(()))
 	}
 
-	#[tracing::instrument(skip(self))]
+	#[tracing::instrument(skip(self, request))]
 	async fn load_preset(
 		&self,
 		request: Request<LoadPresetRequest>,
@@ -210,7 +254,7 @@ impl Controller for MyController {
 		Ok(Response::new(state.try_into()?))
 	}
 
-	#[tracing::instrument(skip(self))]
+	#[tracing::instrument(skip(self, request))]
 	async fn save_preset(
 		&self,
 		request: Request<SavePresetRequest>,
@@ -239,7 +283,7 @@ impl Controller for MyController {
 		Ok(Response::new(state.try_into()?))
 	}
 
-	#[tracing::instrument(skip(self))]
+	#[tracing::instrument(skip(self, request))]
 	async fn set_state(
 		&self,
 		request: Request<SetStateRequest>,
@@ -252,11 +296,46 @@ impl Controller for MyController {
 			.state
 			.ok_or(missing_field("SetStateRequest.state"))?;
 
-		runner
-			.set_state(new_state.clone().try_into()?)
-			.map_err(wrap_err("setting state"))?;
+		let state = new_state.clone().try_into()?;
+		// println!("{:#?}", state);
+
+		runner.set_state(state).map_err(wrap_err("setting state"))?;
 
 		Ok(Response::new(new_state))
+	}
+
+	#[tracing::instrument(skip(self, request))]
+	async fn set_state_effect(
+		&self,
+		request: Request<SetStateEffectRequest>,
+	) -> Result<Response<DisplayState>, Status> {
+		let mut runner = self.runner.lock().unwrap();
+		let mut state = runner
+			.get_state()
+			.map_err(wrap_err("getting state"))?
+			.clone();
+
+		let SetStateEffectRequest { index, effect } = request.into_inner();
+
+		let index: usize = index
+			.try_into()
+			.map_err(wrap_err("converting SetStateEffectRequest.index"))?;
+
+		if let Some(state_effect) = state.effects.get_mut(index) {
+			*state_effect = effect
+				.ok_or(missing_field("SetStateEffectRequest.effect"))?
+				.try_into()?;
+		} else {
+			return Err(Status::invalid_argument(
+				"SetStateEffectRequest.index is not in the current state.",
+			));
+		};
+
+		runner
+			.set_state(state.clone())
+			.map_err(wrap_err("setting state"))?;
+
+		Ok(Response::new(state.try_into()?))
 	}
 
 	type StreamStateStream = DisplayStateStream;

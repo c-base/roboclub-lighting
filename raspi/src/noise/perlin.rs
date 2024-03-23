@@ -26,8 +26,8 @@ impl Perlin {
 		let mut m_perm = [u8::default(); 512];
 		let mut m_perm12 = [u8::default(); 512];
 
-		for i in 0..256 {
-			m_perm[i] = i as u8;
+		for (i, item) in m_perm.iter_mut().enumerate().take(256) {
+			*item = i as u8;
 		}
 
 		for j in 0..256 {
@@ -45,14 +45,14 @@ impl Perlin {
 	}
 
 	fn index_2d_12(&self, offset: u8, x: i32, y: i32) -> u8 {
-		return self.m_perm12
-			[(x & 0xff) as usize + self.m_perm[(y as usize & 0xff) + offset as usize] as usize];
+		self.m_perm12
+			[(x & 0xff) as usize + self.m_perm[(y as usize & 0xff) + offset as usize] as usize]
 	}
 
 	fn grad_coord_2d(&self, offset: u8, x: i32, y: i32, xd: f32, yd: f32) -> f32 {
 		let lut_pos = self.index_2d_12(offset, x, y) as usize;
 
-		return xd * GRAD_X[lut_pos] + yd * GRAD_Y[lut_pos];
+		xd * GRAD_X[lut_pos] + yd * GRAD_Y[lut_pos]
 	}
 
 	pub fn perlin(&self, x: f32, y: f32) -> f32 {
@@ -63,10 +63,8 @@ impl Perlin {
 		let x1 = x0 + 1;
 		let y1 = y0 + 1;
 
-		let xs: f32;
-		let ys: f32;
-		xs = x - x0 as f32;
-		ys = y - y0 as f32;
+		let xs = x - x0 as f32;
+		let ys = y - y0 as f32;
 
 		let xd0 = x - x0 as f32;
 		let yd0 = y - y0 as f32;
@@ -84,6 +82,6 @@ impl Perlin {
 			xs,
 		);
 
-		return lerp(xf0, xf1, ys);
+		lerp(xf0, xf1, ys)
 	}
 }

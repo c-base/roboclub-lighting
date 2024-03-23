@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use tonic::Status;
 
@@ -22,15 +22,7 @@ impl TryFrom<config::DisplayState> for DisplayState {
 			effects.push(effect.try_into()?);
 		}
 
-		let strips = value
-			.segments
-			.into_iter()
-			.map(|f| DisplayStateStrip {
-				segments: f.into_iter().map(|i| i as u32).collect(),
-			})
-			.collect();
-
-		Ok(DisplayState { effects, strips })
+		Ok(DisplayState { effects })
 	}
 }
 
@@ -43,13 +35,7 @@ impl TryFrom<DisplayState> for config::DisplayState {
 			effects.push(effect.try_into()?);
 		}
 
-		let segments = value
-			.strips
-			.into_iter()
-			.map(|f| f.segments.into_iter().map(|i| i as usize).collect())
-			.collect();
-
-		Ok(config::DisplayState { effects, segments })
+		Ok(config::DisplayState { effects })
 	}
 }
 
@@ -57,12 +43,19 @@ impl TryFrom<config::DisplayStateEffect> for DisplayStateEffect {
 	type Error = Status;
 
 	fn try_from(value: config::DisplayStateEffect) -> Result<Self, Self::Error> {
+		let mut segment_ids = Vec::with_capacity(value.segment_ids.len());
+		for segment_id in value.segment_ids {
+			segment_ids.push(segment_id.try_into()?);
+		}
+
 		Ok(DisplayStateEffect {
-			effect: value.effect,
+			effect_id: value.effect_id,
 			config: Some(
 				serde_json::from_value(value.config)
 					.map_err(wrap_err("converting to grpc struct"))?,
 			),
+			segment_ids,
+			group_ids: value.group_ids.into_iter().collect(),
 		})
 	}
 }
@@ -71,14 +64,55 @@ impl TryFrom<DisplayStateEffect> for config::DisplayStateEffect {
 	type Error = Status;
 
 	fn try_from(value: DisplayStateEffect) -> Result<Self, Self::Error> {
+		let mut segment_ids = HashSet::with_capacity(value.segment_ids.len());
+		for segment_id in value.segment_ids {
+			segment_ids.insert(segment_id.try_into()?);
+		}
+
 		Ok(config::DisplayStateEffect {
-			effect: value.effect,
+			effect_id: value.effect_id,
 			config: serde_json::to_value(
 				value
 					.config
 					.ok_or(missing_field("DisplayStateEffect.config"))?,
 			)
 			.map_err(wrap_err("converting from grpc struct"))?,
+			segment_ids,
+			group_ids: value.group_ids.into_iter().collect(),
+		})
+	}
+}
+
+impl TryFrom<config::SegmentId> for SegmentId {
+	type Error = Status;
+
+	fn try_from(value: config::SegmentId) -> Result<Self, Self::Error> {
+		Ok(SegmentId {
+			strip:   value
+				.strip_idx
+				.try_into()
+				.map_err(wrap_err("converting SegmentId.strip"))?,
+			segment: value
+				.segment_idx
+				.try_into()
+				.map_err(wrap_err("converting SegmentId.segment"))?,
+		})
+	}
+}
+
+impl TryFrom<SegmentId> for config::SegmentId {
+	type Error = Status;
+
+	fn try_from(value: SegmentId) -> Result<Self, Self::Error> {
+		Ok(config::SegmentId {
+			strip_idx:   value
+				.strip
+				.try_into()
+				.map_err(wrap_err("converting SegmentId.strip"))?,
+			segment_idx: value
+				.segment
+				.try_into()
+				.map_err(wrap_err("converting SegmentId.segment"))?,
 		})
 	}
 }
@@ -114,6 +148,7 @@ impl TryFrom<effects::EffectData> for Effect {
 
 	fn try_from(value: effects::EffectData) -> Result<Self, Self::Error> {
 		Ok(Effect {
+			id:             value.id,
 			name:           value.name,
 			schema:         Some(transcode(&value.schema)?),
 			default_config: Some(
@@ -129,6 +164,7 @@ impl TryFrom<Effect> for effects::EffectData {
 
 	fn try_from(value: Effect) -> Result<Self, Self::Error> {
 		Ok(effects::EffectData {
+			id:             value.id,
 			name:           value.name,
 			schema:         transcode(&value.schema.ok_or(missing_field("Effect.schema"))?)?,
 			default_config: serde_json::to_value(
@@ -141,31 +177,31 @@ impl TryFrom<Effect> for effects::EffectData {
 	}
 }
 
-impl TryFrom<Vec<config::Strip>> for Segments {
-	type Error = Status;
-
-	fn try_from(value: Vec<config::Strip>) -> Result<Self, Self::Error> {
-		let mut strips = Vec::with_capacity(value.len());
-		for strip in value {
-			strips.push(strip.try_into()?);
-		}
-
-		Ok(Segments { strips })
-	}
-}
-
-impl TryFrom<Segments> for Vec<config::Strip> {
-	type Error = Status;
-
-	fn try_from(value: Segments) -> Result<Self, Self::Error> {
-		let mut strips = Vec::with_capacity(value.strips.len());
-		for strip in value.strips {
-			strips.push(strip.try_into()?);
-		}
-
-		Ok(strips)
-	}
-}
+// impl TryFrom<Vec<config::Strip>> for Segments {
+// 	type Error = Status;
+//
+// 	fn try_from(value: Vec<config::Strip>) -> Result<Self, Self::Error> {
+// 		let mut strips = Vec::with_capacity(value.len());
+// 		for strip in value {
+// 			strips.push(strip.try_into()?);
+// 		}
+//
+// 		Ok(Segments { strips })
+// 	}
+// }
+//
+// impl TryFrom<Segments> for Vec<config::Strip> {
+// 	type Error = Status;
+//
+// 	fn try_from(value: Segments) -> Result<Self, Self::Error> {
+// 		let mut strips = Vec::with_capacity(value.strips.len());
+// 		for strip in value.strips {
+// 			strips.push(strip.try_into()?);
+// 		}
+//
+// 		Ok(strips)
+// 	}
+// }
 
 impl TryFrom<config::Strip> for Strip {
 	type Error = Status;
@@ -205,7 +241,10 @@ impl TryFrom<config::Segment> for Segment {
 	fn try_from(value: config::Segment) -> Result<Self, Self::Error> {
 		Ok(Segment {
 			name:     value.name,
-			length:   value.length as u32,
+			length:   value
+				.length
+				.try_into()
+				.map_err(wrap_err("converting Segment.length"))?,
 			reversed: value.reversed,
 		})
 	}
@@ -217,8 +256,45 @@ impl TryFrom<Segment> for config::Segment {
 	fn try_from(value: Segment) -> Result<Self, Self::Error> {
 		Ok(config::Segment {
 			name:     value.name,
-			length:   value.length as usize,
+			length:   value
+				.length
+				.try_into()
+				.map_err(wrap_err("converting Segment.length"))?,
 			reversed: value.reversed,
+		})
+	}
+}
+
+impl TryFrom<config::Group> for Group {
+	type Error = Status;
+
+	fn try_from(value: config::Group) -> Result<Self, Self::Error> {
+		let mut segment_ids = Vec::with_capacity(value.segment_ids.len());
+		for segment in value.segment_ids {
+			segment_ids.push(segment.try_into()?);
+		}
+
+		Ok(Group {
+			id: value.id,
+			name: value.name,
+			segment_ids,
+		})
+	}
+}
+
+impl TryFrom<Group> for config::Group {
+	type Error = Status;
+
+	fn try_from(value: Group) -> Result<Self, Self::Error> {
+		let mut segment_ids = HashSet::with_capacity(value.segment_ids.len());
+		for segment in value.segment_ids {
+			segment_ids.insert(segment.try_into()?);
+		}
+
+		Ok(config::Group {
+			id: value.id,
+			name: value.name,
+			segment_ids,
 		})
 	}
 }

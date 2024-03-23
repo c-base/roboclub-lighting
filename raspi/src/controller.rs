@@ -15,7 +15,7 @@ use crate::{
 };
 
 pub const LEDS_PER_STRIP: usize = 480;
-pub const STRIPS: usize = 3;
+pub const STRIPS: usize = 8;
 
 pub struct Controller {
 	serial: SerialWs2812,
@@ -52,6 +52,7 @@ impl Controller {
 
 	#[instrument(skip(self))]
 	fn encode_state(&mut self, config: &GlobalConfig) {
+		#[allow(clippy::identity_op)]
 		for (i, c) in self.state.iter().flatten().enumerate() {
 			let (c, a) = c.split();
 			// from black to the colour
@@ -79,9 +80,8 @@ impl LedController for Controller {
 		trace!("sending ws2812 buffer over serial");
 		self.encode_state(config);
 
-		match self.serial.send_leds(&self.buffer) {
-			Err(e) => error!("error sending state: {:#}", e),
-			_ => {}
+		if let Err(e) = self.serial.send_leds(&self.buffer) {
+			error!("error sending state: {:#}", e)
 		};
 	}
 
@@ -120,7 +120,7 @@ pub struct Views<'a> {
 
 impl<'a> Views<'a> {
 	pub fn new(leds: &'a mut [[Rgba; LEDS_PER_STRIP]; STRIPS]) -> Self {
-		let [first, second, third] = leds;
+		let [first, second, third, ..] = leds;
 
 		let (section1, rest) = first.split_at_mut(149);
 		let (section2, rest) = rest.split_at_mut(309 - 149);
@@ -165,6 +165,10 @@ impl<'a> Views<'a> {
 		self.sections.len()
 	}
 
+	pub fn is_empty(&self) -> bool {
+		self.sections.is_empty()
+	}
+
 	pub fn iter_mut(&mut self) -> IterMut<'_, Section<'a>> {
 		self.sections.iter_mut()
 	}
@@ -200,6 +204,19 @@ impl<'a> Section<'a> {
 
 	pub fn len(&self) -> usize {
 		self.slice.len()
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.slice.is_empty()
+	}
+
+	pub fn iter(&mut self) -> Box<dyn Iterator<Item = &'_ Rgba> + '_> {
+		let iter = self.slice.iter();
+		if self.inverted {
+			Box::new(iter.rev())
+		} else {
+			Box::new(iter)
+		}
 	}
 
 	pub fn iter_mut(&mut self) -> Box<dyn Iterator<Item = &'_ mut Rgba> + '_> {
@@ -243,7 +260,7 @@ impl<'a> Section<'a> {
 
 		self.range((start_bound.ceil() as usize)..(end_bound.floor() as usize))
 			.slice
-			.fill_with(|| val.clone());
+			.fill_with(|| *val);
 	}
 
 	pub fn set_aa(&mut self, index: f32, val: &Rgba) {
@@ -251,7 +268,7 @@ impl<'a> Section<'a> {
 		let upper = index.ceil().max(0.0).min((self.len() - 1) as f32) as usize;
 
 		if lower == upper {
-			self[lower] = val.clone();
+			self[lower] = *val;
 			return;
 		}
 

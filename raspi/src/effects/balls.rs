@@ -1,5 +1,4 @@
 use educe::Educe;
-use palette::Shade;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -52,7 +51,7 @@ pub fn balls(config: &BallsConfig, state: &mut BallsState, mut window: EffectWin
 		*led = led.darken(config.darken_factor).into();
 	}
 
-	let before: Vec<Rgba> = window.iter_mut().map(|v| v.clone()).collect();
+	let before: Vec<Rgba> = window.iter().copied().collect();
 	for led in window.iter_mut() {
 		*led = Default::default();
 	}

@@ -2,10 +2,7 @@ use educe::Educe;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{
-	config::db,
-	effects::{config::color::Color, prelude::*},
-};
+use crate::effects::{config::color::Color, EffectWindow};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
@@ -14,34 +11,8 @@ pub struct SolidConfig {
 	color: Color,
 }
 
-pub struct Solid {
-	config: SolidConfig,
-	db:     sled::Tree,
-}
-
-impl Solid {
-	pub fn new(mut db: sled::Tree) -> Self {
-		let mut effect = Solid {
-			config: db::load_config(&mut db),
-			db,
-		};
-
-		effect.set_config(effect.config);
-
-		effect
-	}
-
-	fn set_config(&mut self, config: SolidConfig) {
-		self.config = config;
-	}
-
-	fn run(&mut self, ctrl: &mut impl LedController) {
-		for led in ctrl.state_mut_flat() {
-			*led = self.config.color.value().into();
-		}
-		ctrl.write_state();
-		sleep_ms(50);
+pub fn solid(config: &SolidConfig, _: &mut (), mut window: EffectWindow) {
+	for led in window.iter_mut() {
+		*led = config.color.value().into();
 	}
 }
-
-effect!(Solid, SolidConfig);

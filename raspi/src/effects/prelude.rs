@@ -36,8 +36,8 @@ pub fn set_all_delay(ctrl: &mut impl LedController, color: &Rgba, on: bool, dela
 
 pub fn set_all(ctrl: &mut impl LedController, color: &Rgba) {
 	let data = ctrl.state_mut_flat();
-	for i in 0..data.len() {
-		data[i] = color.clone();
+	for i in data {
+		*i = *color;
 	}
 	todo!()
 	// ctrl.write_state();
@@ -66,8 +66,13 @@ pub fn lerp(from: f32, to: f32, factor: f32) -> f32 {
 
 pub struct Timer {
 	last:           Instant,
-	moving:         [u128; 10],
 	moving_min_max: [u128; 240],
+}
+
+impl Default for Timer {
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 pub struct Stats {
@@ -81,7 +86,6 @@ impl Timer {
 	pub fn new() -> Self {
 		Timer {
 			last:           Instant::now(),
-			moving:         [0; 10],
 			moving_min_max: [0; 240],
 		}
 	}
@@ -91,17 +95,11 @@ impl Timer {
 		let diff = current - self.last;
 		self.last = current;
 
-		self.moving.rotate_right(1);
-		self.moving[0] = diff.as_micros();
-
 		self.moving_min_max.rotate_right(1);
 		self.moving_min_max[0] = diff.as_micros();
 
-		let mut avg = 0;
-		for i in self.moving.iter() {
-			avg += i;
-		}
-		avg /= self.moving.len() as u128;
+		let avg: u128 =
+			self.moving_min_max.iter().sum::<u128>() / self.moving_min_max.len() as u128;
 
 		Stats {
 			dt:  diff.as_micros() as f32 / 1000.0,
