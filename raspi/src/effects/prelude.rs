@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-pub use palette::{IntoColor, Mix, Shade};
+pub use palette::{Darken, IntoColor, Mix};
 
 pub use crate::{
 	color::*,

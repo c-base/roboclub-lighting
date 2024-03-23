@@ -56,11 +56,11 @@ impl Controller {
 		for (i, c) in self.state.iter().flatten().enumerate() {
 			let (c, a) = c.split();
 			// from black to the colour
-			let c = Rgb::default().mix(&c.into_linear(), a * config.brightness);
+			let c = Rgb::default().mix(c.into_linear(), a * config.brightness);
 
 			let (r, g, b) = if config.as_srgb {
-				c.into_encoding::<encoding::Srgb>()
-					.into_format::<u8>()
+				c.into_encoding::<u8, encoding::Srgb>()
+					// .into_format::<u8>()
 					.into_components()
 			} else {
 				c.into_format::<u8>().into_components()
@@ -291,8 +291,8 @@ impl<'a> Section<'a> {
 		// 	lerp_color(self[lower], val, lower_influence)
 		// );
 
-		self[lower] = self[lower].mix(&val.into_linear(), lower_influence).into();
-		self[upper] = self[upper].mix(&val.into_linear(), upper_influence).into();
+		self[lower] = self[lower].mix(val.into_linear(), lower_influence).into();
+		self[upper] = self[upper].mix(val.into_linear(), upper_influence).into();
 		// self[lower] = lerp_color(self[lower], val, lower_influence);
 		// self[upper] = lerp_color(self[upper], val, upper_influence);
 	}

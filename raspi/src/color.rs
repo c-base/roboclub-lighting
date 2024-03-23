@@ -92,7 +92,7 @@ impl DerefMut for Rgba {
 
 impl Hsv {
 	pub fn new(hue: f32, saturation: f32, value: f32) -> Self {
-		Hsv(PHsv::with_wp(hue, saturation, value))
+		Hsv(PHsv::new(hue, saturation, value))
 	}
 }
 
