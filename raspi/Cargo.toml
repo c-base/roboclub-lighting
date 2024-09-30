@@ -17,19 +17,19 @@ effect-derive = { version = "0.0.1" }
 serial-ws2812 = { version = "0.0.1", features = ["tokio"] }
 
 # external
-axum = { version = "0.6.19", features = ["ws", "headers", "macros"] }
+axum = { version = "0.7.7", features = ["ws", "macros"] }
 bytemuck = { version = "1.13.1", features = ["min_const_generics"] }
 color-eyre = "0.6.2"
-educe = "0.5"
+educe = "0.6.0"
 eyre = "0.6.8"
 futures = "0.3"
 headers = "0.4.0"
-jsonrpsee = { version = "0.22.3", features = ["server", "macros"] }
+jsonrpsee = { version = "0.24.5", features = ["server", "macros"] }
 palette = { version = "0.7.5", features = ["random", "serializing"] }
-prost = "0.12.3"
-prost-types = "0.12.3"
-prost-wkt = "0.5.0"
-prost-wkt-types = "0.5.0"
+prost = "0.13.3"
+prost-types = "0.13.3"
+prost-wkt = "0.6.0"
+prost-wkt-types = "0.6.0"
 rand = "0.8"
 serde = "1"
 serde-transcode = "1.1.1"
@@ -37,23 +37,23 @@ serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 sled = "0.34"
 tokio = { version = "1.29.1", features = ["full"] }
 tokio-stream = { version = "0.1.14", features = ["sync"] }
-tokio-tungstenite = "0.21.0"
-tonic = "0.11.0"
-tonic-types = "0.11.0"
-tonic-web = "0.11.0"
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.4.0", features = ["fs", "trace", "cors"] }
+tokio-tungstenite = "0.24.0"
+tonic = "0.12.3"
+tonic-types = "0.12.3"
+tonic-web = "0.12.3"
+tower = { version = "0.5.1", features = ["util"] }
+tower-http = { version = "0.6.1", features = ["fs", "trace", "cors"] }
 tracing = "0.1"
 tracing-error = "0.2.0"
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 utoipa = { version = "4", features = ["axum_extras", "debug"] }
-validator = { version = "0.17", features = ["derive"] }
+validator = { version = "0.18.1", features = ["derive"] }
 
 [build-dependencies]
-prost-build = "0.12.3"
-prost-wkt-build = "0.5.0"
-tonic-build = "0.11.0"
+prost-build = "0.13.3"
+prost-wkt-build = "0.6.0"
+tonic-build = "0.12.3"
 
 #[dependencies.pipewire]
 #version = "0.5.0"

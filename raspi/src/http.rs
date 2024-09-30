@@ -118,14 +118,14 @@ pub async fn run(runner: Arc<Mutex<EffectRunner>>) -> Result<()> {
 		// .route("/ws", get(ws_handler))
 		.layer(CorsLayer::permissive())
 		// .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default()))
-		.route_service("/api/grpc", tonic_web::enable(controller))
+		.route_service("/api/grpc", controller)
 		.with_state(AppState {});
 
 	let addr = SocketAddr::from(([0, 0, 0, 0], 4444));
 	tracing::debug!("listening on {}", addr);
-	axum::Server::bind(&addr)
-		.serve(app.into_make_service())
-		.await?;
+
+	let listener = tokio::net::TcpListener::bind(addr).await?;
+	axum::serve(listener, app).await?;
 
 	Ok(())
 }

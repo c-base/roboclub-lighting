@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.extern_path(".google.protobuf.Value", "::prost_wkt_types::Value")
 		.extern_path(".google.protobuf.Struct", "::prost_wkt_types::Struct")
 		.file_descriptor_set_path(&descriptor_file)
-		.compile(&["proto/control.proto"], &["proto/"])?;
+		.compile_protos(&["proto/control.proto"], &["proto/"])?;
 
 	let descriptor_bytes = std::fs::read(descriptor_file).unwrap();
 
