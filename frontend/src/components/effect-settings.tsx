@@ -81,7 +81,7 @@ function Settings({
 	}
 
 	return (
-		<form onSubmit={(e) => e.preventDefault} class={styles.form}>
+		<form onSubmit={(e) => e.preventDefault()} class={styles.form}>
 			{fields.map((f) => (
 				<Setting field={f} onChange={(value) => update(f.field, value)} />
 			))}
