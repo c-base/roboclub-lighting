@@ -19,6 +19,7 @@
 	color: var(--header-primary);
 	box-shadow: var(--elevation-medium);
 }
+
 .sidebar h4 {
 	font-size: 1em;
 
@@ -66,4 +67,9 @@
 .sidebar li.active button {
 	color: var(--interactive-active);
 	background-color: var(--background-modifier-selected);
+}
+
+.sidebar input[type="range"] {
+	display: flex;
+	width: 100%;
 }

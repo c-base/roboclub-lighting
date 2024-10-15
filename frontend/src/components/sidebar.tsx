@@ -3,9 +3,11 @@ import { ALL_STATES, STATES } from "../state/state";
 import styles from "./sidebar.module.css";
 import { Zap } from "preact-feather";
 import { prettyName } from "../util/pretty-names";
-import { DisplayState, EffectConfig, Effects, Presets } from "../state/api.ts";
+import { Config, DisplayState, EffectConfig, Effects, Presets } from "../state/api.ts";
 
 export function Sidebar({
+	config,
+	setConfig,
 	state,
 	displayState,
 	effects,
@@ -13,6 +15,8 @@ export function Sidebar({
 	loadPreset,
 	setEffectConfig,
 }: {
+	config: Config;
+	setConfig: (config: Config) => void;
 	state: ALL_STATES;
 	displayState: DisplayState;
 	effects: Effects;
@@ -27,6 +31,21 @@ export function Sidebar({
 				<p>loading...</p>
 			) : (
 				<ul>
+					<h4>Brightness</h4>
+					<input
+						type="range"
+						min={0.01}
+						max={1}
+						step={0.01}
+						value={config.brightness}
+						onInput={(e) =>
+							setConfig({
+								brightness: e.currentTarget.valueAsNumber,
+								srgb: config.srgb,
+							})
+						}
+					/>
+
 					<h4>Effects</h4>
 					{Object.entries(effects)
 						.sort(([, a], [, b]) => (a.name > b.name ? 1 : a.name < b.name ? -1 : 0))
@@ -41,6 +60,7 @@ export function Sidebar({
 								</button>
 							</li>
 						))}
+
 					<h4>Presets</h4>
 					{Object.entries(presets)
 						.sort(([a], [b]) => (a > b ? 1 : a < b ? -1 : 0))
