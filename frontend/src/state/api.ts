@@ -7,7 +7,7 @@ import { ControllerClient } from "../proto/control.client";
 import * as proto from "../proto/control";
 import { SegmentId } from "../proto/control";
 
-const HOSTNAME = import.meta.hot ? "localhost:4445" : ":4445";
+const HOSTNAME = import.meta.hot ? "localhost:4445" : `${window.location.hostname}:4445`;
 
 const transport = new GrpcWebFetchTransport({
 	format: "binary",

@@ -6,6 +6,8 @@
 	flex: 1;
 
 	background-color: var(--background-secondary);
+
+	overflow: hidden;
 }
 
 .sidebar h1 {
@@ -34,6 +36,8 @@
 	list-style: none;
 	margin: 0;
 	padding: 8px;
+
+	overflow: hidden auto;
 }
 
 .sidebar li {

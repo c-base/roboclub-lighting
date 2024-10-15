@@ -3,7 +3,7 @@
 
 	padding: 40px;
 
-	overflow: hidden scroll;
+	overflow: hidden auto;
 
 	background-color: var(--background-primary);
 }

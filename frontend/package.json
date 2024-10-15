@@ -6,7 +6,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "pnpm generate && tsc && vite build --outDir ../raspi/public",
+		"build": "pnpm generate && tsc && vite build --outDir ../raspi/public --emptyOutDir",
 		"check": "tsc --noEmit",
 		"generate": "protoc -I=../raspi/proto control.proto --js_out=import_style=commonjs:./src/proto --grpc-web_out=import_style=typescript,mode=grpcwebtext:./src/proto",
 		"generate-ts": "protoc -I=../raspi/proto control.proto --ts_out ./src/proto --experimental_allow_proto3_optional",
