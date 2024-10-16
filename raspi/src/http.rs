@@ -122,7 +122,7 @@ pub async fn run(runner: Arc<Mutex<EffectRunner>>) -> Result<()> {
 		.with_state(AppState {});
 
 	let addr = SocketAddr::from(([0, 0, 0, 0], 4444));
-	tracing::debug!("listening on {}", addr);
+	tracing::debug!("http listening on {}", addr);
 
 	let listener = tokio::net::TcpListener::bind(addr).await?;
 	axum::serve(listener, app).await?;

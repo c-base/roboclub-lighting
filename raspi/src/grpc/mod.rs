@@ -2,6 +2,7 @@ pub mod schema;
 
 use std::{
 	fmt::Display,
+	net::SocketAddr,
 	pin::Pin,
 	sync::{Arc, Mutex},
 };
@@ -359,17 +360,10 @@ impl Controller for MyController {
 	}
 }
 
-// #[tonic::async_trait]
-// impl Greeter for MyGreeter {
-// 	async fn say_hello(
-// 		&self,
-// 		request: Request<HelloRequest>, // Accept request of type HelloRequest
-// 	) -> Result<Response<HelloReply>, Status> {
-// 	}
-// }
-
 pub async fn run(runner: Arc<Mutex<EffectRunner>>) -> Result<()> {
-	let addr = "[::1]:4445".parse()?;
+	// let addr = "[::1]:4445".parse()?;
+	let addr = SocketAddr::from(([0, 0, 0, 0], 4445));
+	tracing::debug!("grpc listening on {}", addr);
 
 	let controller = MyController { runner };
 	let controller = ControllerServer::new(controller);
