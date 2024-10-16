@@ -1,12 +1,13 @@
 use std::{
 	fmt::Debug,
+	io::ErrorKind,
 	ops::{Bound, Index, IndexMut, RangeBounds},
 	slice::{Iter, IterMut},
 };
 
 use eyre::{eyre, Result};
 use palette::{encoding, Mix, WithAlpha};
-use serial_ws2812::{Config as SerialConfig, SerialWs2812};
+use serial_ws2812::{Config as SerialConfig, Error, SerialWs2812};
 use tracing::{error, instrument, trace};
 
 use crate::{
@@ -81,6 +82,12 @@ impl LedController for Controller {
 		self.encode_state(config);
 
 		if let Err(e) = self.serial.send_leds(&self.buffer) {
+			if let Error::IO(ref e) = e {
+				if e.kind() == ErrorKind::BrokenPipe {
+					panic!("broken pipe: {:#}", e);
+				}
+			}
+
 			error!("error sending state: {:#}", e)
 		};
 	}

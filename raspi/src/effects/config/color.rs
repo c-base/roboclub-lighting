@@ -24,7 +24,7 @@ impl Color {
 impl Default for Color {
 	fn default() -> Self {
 		Color {
-			value: Hsv::new(0.0, 0.3, 1.0),
+			value: Hsv::new(0.0, 0.5, 1.0),
 		}
 	}
 }

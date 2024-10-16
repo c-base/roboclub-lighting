@@ -1,39 +1,17 @@
 use educe::Educe;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{controller::Controller, db, effects::prelude::*};
+use crate::effects::{prelude::*, EffectWindow};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, JsonSchema, Educe, ToSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
 pub struct EffectConfig {
-	#[educe(Default = 10)]
-	something: usize,
+	#[educe(Default = 10.0)]
+	something: f32,
 }
 
-pub struct Effect {
-	config: EffectConfig,
-	db:     sled::Tree,
-}
+#[derive(Default)]
+pub struct EffectState {}
 
-impl Effect {
-	pub fn new(db: sled::Tree) -> Self {
-		let mut effect = Effect {
-			config: db::load_effect_config(&db),
-			db,
-		};
-
-		effect.set_config(effect.config);
-
-		effect
-	}
-
-	fn set_config(&mut self, config: EffectConfig) {
-		self.config = config;
-	}
-
-	fn run(&mut self, ctrl: &mut impl LedController) {}
-}
-
-effect!(Effect, EffectConfig);
+pub fn effect(config: &EffectConfig, state: &mut EffectState, mut window: EffectWindow) {}

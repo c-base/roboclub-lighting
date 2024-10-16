@@ -7,71 +7,109 @@ use educe::Educe;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{config::db, effects::prelude::*};
+use crate::effects::{prelude::*, EffectWindow};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
 pub struct MovingLightsConfig {
-	#[schema(minimum = 1, maximum = 100)]
-	#[educe(Default = 20)]
-	frequency: u64,
+	#[schema(minimum = 1.0, maximum = 100.0)]
+	#[educe(Default = 20.0)]
+	frequency: f32,
 
-	#[schema(minimum = 1, maximum = 100)]
-	#[educe(Default = 15)]
-	impulse_len: usize,
+	#[schema(minimum = 1.0, maximum = 100.0)]
+	#[educe(Default = 15.0)]
+	impulse_len: f32,
 
-	#[schema(minimum = 1, maximum = 10000)]
-	#[educe(Default = 2000)]
-	pulse_delay_ms: u64,
+	#[schema(minimum = 0.001, maximum = 10.0)]
+	#[educe(Default = 2.0)]
+	pulse_delay_s: f32,
 }
 
-pub struct MovingLights {
-	config: MovingLightsConfig,
-	db:     sled::Tree,
-
+pub struct MovingLightsState {
 	anim:            MovingLightStripsAnimation,
 	next_light_time: Instant,
+	timer:           TimerState,
 }
 
-impl MovingLights {
-	pub fn new(mut db: sled::Tree) -> Self {
-		let mut effect = MovingLights {
-			config: db::load_config(&mut db),
-			db,
-
-			anim: MovingLightStripsAnimation::new(NUM_LEDS, 15),
+impl Default for MovingLightsState {
+	fn default() -> Self {
+		MovingLightsState {
+			anim:            MovingLightStripsAnimation::new(NUM_LEDS, 15),
 			next_light_time: Instant::now(),
-		};
-
-		effect.set_config(effect.config);
-
-		effect
-	}
-
-	fn set_config(&mut self, config: MovingLightsConfig) {
-		self.config = config;
-	}
-
-	fn run(&mut self, ctrl: &mut impl LedController) {
-		let frequency_ms = 1000 / self.config.frequency;
-
-		let now = Instant::now();
-		if now >= self.next_light_time {
-			self.anim.add_next_light_impulse();
-			self.next_light_time = now.add(Duration::from_millis(self.config.pulse_delay_ms))
+			timer:           TimerState::default(),
 		}
-		self.anim.shift_all_pixels();
-
-		for strip in ctrl.state_mut() {
-			let len = strip.len();
-			strip.clone_from_slice(&self.anim.as_slice()[0..len]);
-		}
-
-		sleep_ms(frequency_ms);
 	}
 }
 
-effect!(MovingLights, MovingLightsConfig);
+pub fn moving_lights(
+	config: &MovingLightsConfig,
+	state: &mut MovingLightsState,
+	mut window: EffectWindow,
+) {
+	let frequency_s = Duration::from_secs_f32(1.0 / config.frequency);
+
+	let now = Instant::now();
+	if now >= state.next_light_time {
+		state.anim.add_next_light_impulse();
+		state.next_light_time = now.add(Duration::from_secs_f32(config.pulse_delay_s))
+	}
+
+	if state.timer.tick(frequency_s).triggered {
+		state.anim.shift_all_pixels();
+	}
+
+	for (i, led) in window.iter_mut().enumerate() {
+		*led = state.anim.as_slice()[i];
+	}
+}
+
+// pub struct MovingLights {
+// 	config: MovingLightsConfig,
+// 	db:     sled::Tree,
+//
+// 	anim:            MovingLightStripsAnimation,
+// 	next_light_time: Instant,
+// }
+//
+// impl MovingLights {
+// 	pub fn new(mut db: sled::Tree) -> Self {
+// 		let mut effect = MovingLights {
+// 			config: db::load_config(&mut db),
+// 			db,
+//
+// 			anim: MovingLightStripsAnimation::new(NUM_LEDS, 15),
+// 			next_light_time: Instant::now(),
+// 		};
+//
+// 		effect.set_config(effect.config);
+//
+// 		effect
+// 	}
+//
+// 	fn set_config(&mut self, config: MovingLightsConfig) {
+// 		self.config = config;
+// 	}
+//
+// 	fn run(&mut self, ctrl: &mut impl LedController) {
+// 		let frequency_ms = 1000 / self.config.frequency;
+//
+// 		let now = Instant::now();
+// 		if now >= self.next_light_time {
+// 			self.anim.add_next_light_impulse();
+// 			self.next_light_time = now.add(Duration::from_millis(self.config.pulse_delay_ms))
+// 		}
+// 		self.anim.shift_all_pixels();
+//
+// 		for strip in ctrl.state_mut() {
+// 			let len = strip.len();
+// 			strip.clone_from_slice(&self.anim.as_slice()[0..len]);
+// 		}
+//
+// 		sleep_ms(frequency_ms);
+// 	}
+// }
+//
+// effect!(MovingLights, MovingLightsConfig);
 
 pub struct MovingLightStripsAnimation {
 	rgb_data:    Vec<Rgba>,

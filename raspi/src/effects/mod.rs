@@ -7,25 +7,39 @@ use utoipa::{
 	ToSchema,
 };
 
-pub use crate::effects::{balls::balls, solid::solid};
 use crate::{config::WithConfig, controller::Section};
 
 pub mod balls;
 pub mod config;
-// pub mod explosions;
-// pub mod flash_rainbow;
-// pub mod flash_rainbow_noise;
-// pub mod flash_rainbow_random;
-// pub mod meteors;
-// pub mod moving_lights;
+pub mod explosions;
+pub mod flash_rainbow;
+pub mod flash_rainbow_noise;
+pub mod flash_rainbow_random;
+pub mod meteors;
+pub mod moving_lights;
 // pub mod police;
 pub mod prelude;
-// pub mod rainbow;
-// pub mod random;
+pub mod rainbow;
+pub mod random;
 // pub mod schema;
-// pub mod snake;
+pub mod snake;
 pub mod solid;
-// pub mod static_rainbow;
+pub mod static_rainbow;
+
+pub use crate::effects::{
+	balls::balls,
+	explosions::explosions,
+	flash_rainbow::flash_rainbow,
+	flash_rainbow_noise::flash_rainbow_noise,
+	flash_rainbow_random::flash_rainbow_random,
+	meteors::meteors,
+	moving_lights::moving_lights,
+	rainbow::rainbow,
+	random::random,
+	snake::snake,
+	solid::solid,
+	static_rainbow::static_rainbow,
+};
 
 pub trait EffectFactory: Send {
 	fn schema(&self) -> Schema;
@@ -107,12 +121,23 @@ where
 	}
 }
 
+// impl<C, S, F> EffectFn<C, S> for F
+// where
+// 	C: Default,
+// 	S: Default,
+// 	F: Fn(&C, &mut S, Option<EffectWindow>) + Send + Sync,
+// {
+// 	fn call(&self, config: &C, state: &mut S, window: EffectWindow) {
+// 		(self)(config, state, Some(window))
+// 	}
+// }
+
 // impl<C, F> EffectFn<C, ()> for F
 // where
 // 	C: Default,
-// 	F: Fn(&C, &mut Controller) + Send + Sync,
+// 	F: Fn(&C, &mut EffectWindow) + Send + Sync,
 // {
-// 	fn call(config: &C, _: &(), ctrl: &mut Controller) {
+// 	fn call(&self, config: &C, _: &(), ctrl: &mut EffectWindow) {
 // 		(Self)(config, ctrl)
 // 	}
 // }

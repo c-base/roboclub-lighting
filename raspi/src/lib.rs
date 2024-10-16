@@ -35,29 +35,21 @@ pub fn all_internal_effects() -> Result<HashMap<String, Box<dyn EffectFactory>>>
 
 	add_effect(&mut effect_map, "balls", balls)?;
 	add_effect(&mut effect_map, "solid", solid)?;
-
-	// add_effect(&mut effect_map, db, "explosions", |db| Explosions::new(db))?;
-	// add_effect(&mut effect_map, db, "flash_rainbow", |db| {
-	// 	FlashRainbow::new(db)
-	// })?;
-	// add_effect(&mut effect_map, db, "flash_rainbow_noise", |db| {
-	// 	FlashRainbowNoise::new(db)
-	// })?;
-	// add_effect(&mut effect_map, db, "flash_rainbow_random", |db| {
-	// 	FlashRainbowRandom::new(db)
-	// })?;
-	// add_effect(&mut effect_map, db, "meteors", |db| Meteors::new(db))?;
-	// add_effect(&mut effect_map, db, "moving_lights", |db| {
-	// 	MovingLights::new(db)
-	// })?;
+	add_effect(&mut effect_map, "static_rainbow", static_rainbow)?;
+	add_effect(&mut effect_map, "explosions", explosions)?;
+	add_effect(&mut effect_map, "flash_rainbow", flash_rainbow)?;
+	add_effect(&mut effect_map, "flash_rainbow_noise", flash_rainbow_noise)?;
+	add_effect(
+		&mut effect_map,
+		"flash_rainbow_random",
+		flash_rainbow_random,
+	)?;
+	add_effect(&mut effect_map, "meteors", meteors)?;
+	add_effect(&mut effect_map, "moving_lights", moving_lights)?;
 	// add_effect(&mut effect_map, db, "police", |db| Police::new(db))?;
-	// add_effect(&mut effect_map, db, "rainbow", |db| Rainbow::new(db))?;
-	// add_effect(&mut effect_map, db, "random", |db| RandomNoise::new(db))?;
-	// add_effect(&mut effect_map, db, "snake", |db| Snake::new(db))?;
-	// add_effect(&mut effect_map, db, "solid", |db| Solid::new(db))?;
-	// add_effect(&mut effect_map, db, "static_rainbow", |db| {
-	// 	StaticRainbow::new(db)
-	// })?;
+	add_effect(&mut effect_map, "rainbow", rainbow)?;
+	add_effect(&mut effect_map, "random", random)?;
+	add_effect(&mut effect_map, "snake", snake)?;
 
 	Ok(effect_map)
 }

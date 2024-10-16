@@ -1,11 +1,10 @@
+use std::time::Duration;
+
 use educe::Educe;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{
-	config::db,
-	effects::{config::color::ColorGradient, prelude::*},
-};
+use crate::effects::{config::color::ColorGradient, prelude::*, EffectWindow};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
@@ -22,37 +21,23 @@ pub struct FlashRainbowConfig {
 	on_percentage: f32,
 }
 
-pub struct FlashRainbow {
-	config: FlashRainbowConfig,
-	db:     sled::Tree,
+#[derive(Default)]
+pub struct FlashRainbowState {
+	timer: TimerState,
 }
 
-impl FlashRainbow {
-	pub fn new(mut db: sled::Tree) -> Self {
-		let mut effect = FlashRainbow {
-			config: db::load_config(&mut db),
-			db,
-		};
+pub fn flash_rainbow(
+	config: &FlashRainbowConfig,
+	state: &mut FlashRainbowState,
+	mut window: EffectWindow,
+) {
+	let period = Duration::from_secs_f32(config.period);
+	let t = state.timer.tick(period);
 
-		effect.set_config(effect.config);
-
-		effect
-	}
-
-	fn set_config(&mut self, config: FlashRainbowConfig) {
-		self.config = config;
-	}
-
-	fn run(&mut self, ctrl: &mut impl LedController) {
-		let color = self.config.colors.random();
-		let start = std::time::Instant::now();
-		set_all(ctrl, &color.clone().into());
-		sleep_ms((self.config.period * self.config.on_percentage * 1000.0) as u64);
-		set_all(ctrl, &Rgba::default());
-		let now = std::time::Instant::now();
-		let diff = now - start;
-		sleep_ms((self.config.period * 1000.0) as u64 - diff.as_millis() as u64);
+	if t.triggered {
+		let color = config.colors.random();
+		set_all_raw(&mut window, color.into());
+	} else if t.percentage > config.on_percentage {
+		clear_all_raw(&mut window);
 	}
 }
-
-effect!(FlashRainbow, FlashRainbowConfig);

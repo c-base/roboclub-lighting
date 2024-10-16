@@ -2,7 +2,7 @@ use educe::Educe;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{config::db, effects::prelude::*};
+use crate::{color::Hsv, effects::EffectWindow};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Educe, ToSchema)]
 #[educe(Default)]
@@ -12,37 +12,9 @@ pub struct StaticRainbowConfig {
 	hue_frequency: f32,
 }
 
-pub struct StaticRainbow {
-	config: StaticRainbowConfig,
-	db:     sled::Tree,
-}
-
-impl StaticRainbow {
-	pub fn new(mut db: sled::Tree) -> Self {
-		let mut effect = StaticRainbow {
-			config: db::load_config(&mut db),
-			db,
-		};
-
-		effect.set_config(effect.config);
-
-		effect
-	}
-
-	fn set_config(&mut self, config: StaticRainbowConfig) {
-		self.config = config;
-	}
-
-	fn run(&mut self, ctrl: &mut impl LedController) {
-		let leds = ctrl.state_mut_flat();
-
-		for i in 0..leds.len() {
-			let hue = (i as f32 * (360.0 / self.config.hue_frequency)) % 360.0;
-			leds[i] = Hsv::new(hue, 1.0, 1.0).into();
-		}
-
-		ctrl.write_state();
+pub fn static_rainbow(config: &StaticRainbowConfig, _: &mut (), mut window: EffectWindow) {
+	for (i, led) in window.iter_mut().enumerate() {
+		let hue = (i as f32 * (360.0 / config.hue_frequency)) % 360.0;
+		*led = Hsv::new(hue, 1.0, 1.0).into();
 	}
 }
-
-effect!(StaticRainbow, StaticRainbowConfig);

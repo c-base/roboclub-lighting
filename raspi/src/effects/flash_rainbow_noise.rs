@@ -1,10 +1,11 @@
+use std::time::Duration;
+
 use educe::Educe;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{
-	config::db,
-	effects::{config::color::ColorGradient, prelude::*},
+	effects::{config::color::ColorGradient, prelude::*, EffectWindow},
 	noise,
 };
 
@@ -35,60 +36,51 @@ pub struct FlashRainbowNoiseConfig {
 	threshold: f32,
 }
 
-pub struct FlashRainbowNoise {
-	config: FlashRainbowNoiseConfig,
-	db:     sled::Tree,
-
+#[derive(Default)]
+pub struct FlashRainbowNoiseState {
+	timer:   TimerState,
 	counter: f32,
 }
 
-impl FlashRainbowNoise {
-	pub fn new(mut db: sled::Tree) -> Self {
-		let mut effect = FlashRainbowNoise {
-			config: db::load_config(&mut db),
-			db,
+pub fn flash_rainbow_noise(
+	config: &FlashRainbowNoiseConfig,
+	state: &mut FlashRainbowNoiseState,
+	mut window: EffectWindow,
+) {
+	let period = Duration::from_secs_f32(config.period);
+	let t = state.timer.tick(period);
 
-			counter: 0.0,
-		};
+	state.counter += config.speed;
 
-		effect.set_config(effect.config);
-
-		effect
-	}
-
-	fn set_config(&mut self, config: FlashRainbowNoiseConfig) {
-		self.config = config;
-	}
-
-	fn run(&mut self, ctrl: &mut impl LedController) {
-		let start = std::time::Instant::now();
-
-		self.counter += self.config.speed;
-
-		let color = self.config.colors.random();
-
-		let data = ctrl.state_mut();
-		for (strip_num, strip) in data.iter_mut().enumerate() {
-			for (led_num, led) in strip.iter_mut().enumerate() {
-				let noise_val = noise::simplex3d(
-					led_num as f32 / self.config.size,
-					strip_num as f32 * 100.0,
-					self.counter,
-				);
-				if noise_val > self.config.threshold {
-					*led = color.clone().into();
-				}
-			}
+	if !t.triggered {
+		if t.percentage > config.on_percentage {
+			clear_all_raw(&mut window);
 		}
 
-		ctrl.write_state();
-		sleep_ms((self.config.period * self.config.on_percentage * 1000.0) as u64);
-
-		set_all(ctrl, &Rgba::default());
-		let now = std::time::Instant::now();
-		let diff = now - start;
-		sleep_ms((self.config.period * 1000.0) as u64 - diff.as_millis() as u64);
+		return;
 	}
-}
 
-effect!(FlashRainbowNoise, FlashRainbowNoiseConfig);
+	let color = config.colors.random();
+
+	// let data = ctrl.state_mut();
+	// for (strip_num, strip) in data.iter_mut().enumerate() {
+	for (led_num, led) in window.iter_mut().enumerate() {
+		let noise_val = noise::simplex3d(
+			led_num as f32 / config.size,
+			/* strip_num as f32 * */ 100.0,
+			state.counter,
+		);
+		if noise_val > config.threshold {
+			*led = color.into();
+		}
+	}
+	// }
+
+	// ctrl.write_state();
+	// sleep_ms((config.period * config.on_percentage * 1000.0) as u64);
+	//
+	// set_all(ctrl, &Rgba::default());
+	// let now = std::time::Instant::now();
+	// let diff = now - start;
+	// sleep_ms((config.period * 1000.0) as u64 - diff.as_millis() as u64);
+}

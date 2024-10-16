@@ -2,6 +2,7 @@ use std::time::{Duration, Instant};
 
 pub use palette::{Darken, IntoColor, Mix};
 
+use crate::effects::EffectWindow;
 pub use crate::{
 	color::*,
 	controller::{Controller, LedController},
@@ -41,6 +42,16 @@ pub fn set_all(ctrl: &mut impl LedController, color: &Rgba) {
 	}
 	todo!()
 	// ctrl.write_state();
+}
+
+pub fn set_all_raw(window: &mut EffectWindow, color: Rgba) {
+	for led in window.iter_mut() {
+		*led = color;
+	}
+}
+
+pub fn clear_all_raw(window: &mut EffectWindow) {
+	set_all_raw(window, Rgba::default());
 }
 
 // pub fn darken_rgb(rgb: [u8; 3], factor: f32) -> [u8; 3] {
@@ -114,6 +125,55 @@ impl Timer {
 				.iter()
 				.fold(u128::MIN, |max, cur| max.max(*cur)) as f32
 				/ 1000.0,
+		}
+	}
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct TimerState {
+	init: bool,
+	last: Instant,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct TimerStateResult {
+	pub percentage: f32,
+	pub triggered:  bool,
+	pub elapsed:    Duration,
+}
+
+impl Default for TimerState {
+	fn default() -> Self {
+		TimerState {
+			init: false,
+			last: Instant::now(),
+		}
+	}
+}
+
+impl TimerState {
+	pub(crate) fn tick(&mut self, period: Duration) -> TimerStateResult {
+		let mut triggered = false;
+
+		if !self.init {
+			self.last = Instant::now();
+			self.init = true;
+			triggered = true;
+		}
+
+		let mut elapsed = self.last.elapsed();
+
+		while elapsed > period {
+			self.last += period;
+			elapsed = self.last.elapsed();
+
+			triggered = true;
+		}
+
+		TimerStateResult {
+			percentage: elapsed.as_secs_f32() / period.as_secs_f32(),
+			triggered,
+			elapsed,
 		}
 	}
 }
